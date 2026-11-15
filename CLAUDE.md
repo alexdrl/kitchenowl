@@ -1,0 +1,76 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+KitchenOwl is a self-hosted grocery list / recipe / meal-plan / expense manager. This monorepo has three parts:
+
+- `backend/`: Flask REST API + Socket.IO server (Python, managed with `uv`)
+- `kitchenowl/`: Flutter client for mobile, web and desktop
+- `docs/`: user docs built with zensical (`docs/mkdocs.yml`)
+
+`flutter/` is a git submodule of the Flutter SDK (stable). The root `Dockerfile` builds the all-in-one image: the Flutter web build is served by the backend's uWSGI.
+
+## Commands
+
+### Backend (run from `backend/`)
+
+`pyproject.toml` requires Python >= 3.14 (`.python-version` is 3.14). The READMEs still say 3.12+, which is out of date.
+
+```bash
+uv sync                      # install deps (CI uses: uv sync --all-extras --dev)
+uv run pre-commit install    # ruff lint + ruff-format hooks (migrations/ and tests/ are excluded)
+uv run python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', download_dir='.venv/nltk_data')"
+uv run flask db upgrade      # create/upgrade the SQLite DB (defaults to backend/database.db)
+uv run wsgi.py               # dev server on localhost:5000 (add --host=0.0.0.0 to expose)
+uv run manage.py             # interactive admin CLI (create users, run jobs, etc.); see --help
+```
+
+- Never start the server with `flask run`. Sockets only initialise properly through `wsgi.py` (gevent monkey-patching + `socketio.run`). The "WebSocket transport not available" warning in debug mode is expected and harmless.
+- Tests: `uv run pytest`. For one file or test: `uv run pytest tests/api/test_api_recipe.py -k test_name`. CI runs `uv run pytest --cov=./ --cov-report=term`.
+- Schema changes need an Alembic migration: `uv run flask db migrate -m "..."`, then review the generated file in `migrations/versions/`. The container entrypoint runs `flask db upgrade` on every start.
+
+### Frontend (run from `kitchenowl/`)
+
+```bash
+flutter packages get
+flutter run                  # -d <DEVICE_ID> to pick a target
+flutter analyze              # CI gate
+flutter test                 # single file: flutter test test/models/item.dart
+```
+
+Localisation is generated: `l10n.yaml` turns the ARB files in `lib/l10n/` into `lib/gen/l10n/` (gitignored, created by `flutter pub get` / `flutter gen-l10n`). Add new strings to `app_en.arb` only. The other languages come from Weblate.
+
+### Docs (run from `docs/`)
+
+`pip install -r requirements.txt`, then `zensical serve`.
+
+## Backend architecture
+
+- **`app/config.py` is the composition root.** It creates the Flask `app`, `db` (SQLAlchemy), `jwt`, `socketio`, `api_spec`, and either an APScheduler `scheduler` or a Celery `celery_app`. All configuration comes from environment variables read here (`DB_DRIVER`/`DB_*`, `STORAGE_PATH`, `MESSAGE_BROKER`, `OPEN_REGISTRATION`, OIDC/Google/Apple secrets, and so on). `app/__init__.py` just imports config → controllers → sockets → jobs → `api` (route registration), so import order matters.
+- **Background jobs:** if `MESSAGE_BROKER` is unset, jobs in `app/jobs/jobs.py` run in-process via APScheduler. If it is set, they run as Celery tasks and Socket.IO uses the broker as its message queue (the multi-container setup in `docker-compose-rabbitmq.yml`). Jobs compute item ordering, item and recipe suggestions, shopping clustering, and cleanup.
+- **Routing:** each `app/controller/<domain>/` package has `*_controller.py` and `schemas.py` and exports two blueprints: a global one (e.g. `recipe` → `/api/recipe/<id>`) and a household-scoped one (e.g. `recipeHousehold` → `/api/household/<household_id>/recipe`). All the wiring lives in `app/api/register_controller.py`; a new blueprint must be registered there and re-exported from `app/controller/__init__.py`. The MCP endpoint (`/mcp`) is only registered when `KITCHENOWL_MCP_ENABLED=true` or when testing. An OpenAPI spec is built from all routes at startup.
+- **Endpoint decorator stack** (order matters): `@bp.route` → `@jwt_required()` → `@authorize_household(RequiredRights.MEMBER|ADMIN|ADMIN_OR_SELF)` → `@validate_args(MarshmallowSchema)`. `validate_args` loads query args for GET and the JSON body otherwise, and passes the result as the first positional `args` parameter.
+- **Authorization:** household-scoped routes use `authorize_household` (needs a `household_id` URL kwarg). Global routes that load an object by ID must call `obj.checkAuthorized()` (from `DbModelAuthorizeMixin`) themselves. Search and list queries must filter by household membership or public visibility; access-control fixes have landed here before.
+- **Models** (`app/models/`) extend `DbModelBase` (declarative base with a fixed constraint naming convention + timestamp mixin). They provide `.save()`, `.delete()`, `.obj_to_dict()`, `Model.find_by_id()`, `all_from_household()`, etc. Controllers return `jsonify(model.obj_to_dict())`. Raise errors from `app/errors` (`NotFoundRequest`, `InvalidUsage`, `ForbiddenRequest`, …) rather than returning error responses by hand.
+- **Real-time sync:** controllers emit Socket.IO events after mutations, e.g. `socketio.emit("shoppinglist:add", ..., to="household/<id>")`. Clients join `household/<id>` rooms in `app/sockets/`. Socket handlers use `socket_jwt_required` / `validate_socket_args`.
+- **Services** (`app/service/`) hold heavier logic: recipe scraping (`recipe-scrapers`), ingredient parsing, LLM recipe generation (`litellm`), import/export, mail, and balance recalculation.
+- **Tests** (`tests/api/conftest.py`): the `client` fixture runs `db.create_all()` / `drop_all()` per test, and fixtures build up users, households and auth headers. Tests use the configured DB (SQLite by default).
+
+## Frontend architecture
+
+- **State:** `flutter_bloc` Cubits in `lib/cubits/` (one per page or feature), Equatable models in `lib/models/`, pages in `lib/pages/`, routing with `go_router` in `lib/router.dart`.
+- **API layer:** `ApiService` (`lib/services/api/api_service.dart`) is a singleton holding the HTTP client, tokens and the Socket.IO connection. Each domain adds methods through a Dart `extension XxxApi on ApiService` in `lib/services/api/<domain>.dart`.
+- **Offline support:** cubits don't call the API directly for syncable data. They wrap calls in `Transaction` subclasses (`lib/services/transactions/`) and run them through `TransactionHandler.runTransaction`. Each transaction has `runOnline()` and an offline fallback. Failed transactions are persisted (`TransactionStorage`) and replayed by `runOpenTransactions()` on reconnect (discarded after 3 days).
+
+## Versioning / compatibility
+
+Frontend and backend have to agree on versions in three places:
+- `backend/app/config.py`: `BACKEND_VERSION` (matches the `+build` number in `kitchenowl/pubspec.yaml`) and `MIN_FRONTEND_VERSION`
+- `kitchenowl/lib/config.dart`: `MIN_BACKEND_VERSION`, which the client checks against the `version` field returned by `/api/health/<token>` (the fixed token path is hardcoded on both sides)
+
+Bump these together when the API changes in a breaking way.
+
+## Contribution conventions
+
+- Conventional commits (`fix:`, `feat:`, `chore:`, `docs(scope):` …), with branches named `<type>/<description>`. One PR per fix or feature, rebased and squashed.
+- Open an issue before any new feature or API change.
