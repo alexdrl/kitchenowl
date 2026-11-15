@@ -897,5 +897,6 @@
   "plannerNoteInfo": "A text doesn't add ingredients to the shopping list or count for suggestions.",
   "plannerNoteEatingOut": "Eating out",
   "plannerNoteLeftovers": "Leftovers",
-  "plannerNoteTakeaway": "Takeaway"
+  "plannerNoteTakeaway": "Takeaway",
+  "plannerSaveFailed": "Couldn't save it. Check your connection and try again."
 }

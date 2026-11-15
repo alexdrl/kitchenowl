@@ -15,6 +15,7 @@ Future<PlannerSlot?> showPlannerAddSheet(
   bool showBreakfast = true,
   DateTime? initialDate,
   Meal? initialMeal,
+  bool allowNoDay = true,
 }) {
   return showModalBottomSheet<PlannerSlot>(
     context: context,
@@ -26,6 +27,7 @@ Future<PlannerSlot?> showPlannerAddSheet(
       showBreakfast: showBreakfast,
       initialDate: initialDate,
       initialMeal: initialMeal,
+      allowNoDay: allowNoDay,
     ),
   );
 }
@@ -38,11 +40,15 @@ class _PlannerAddSheet extends StatefulWidget {
   final DateTime? initialDate;
   final Meal? initialMeal;
 
+  /// False for text notes, which always have a day
+  final bool allowNoDay;
+
   const _PlannerAddSheet({
     required this.recipeName,
     required this.showBreakfast,
     this.initialDate,
     this.initialMeal,
+    this.allowNoDay = true,
   });
 
   @override
@@ -58,12 +64,13 @@ class _PlannerAddSheetState extends State<_PlannerAddSheet> {
   void initState() {
     super.initState();
     date = _localDay(widget.initialDate ?? DateTime.now());
+    // Keep the current meal when moving (breakfast too, even if hidden)
     meal = widget.initialMeal ?? Meal.suggested();
-    if (!widget.showBreakfast && meal == Meal.breakfast) meal = Meal.lunch;
   }
 
   List<Meal> get meals => [
-        if (widget.showBreakfast) Meal.breakfast,
+        if (widget.showBreakfast || widget.initialMeal == Meal.breakfast)
+          Meal.breakfast,
         Meal.lunch,
         Meal.dinner,
         Meal.any,
@@ -104,11 +111,12 @@ class _PlannerAddSheetState extends State<_PlannerAddSheet> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ChoiceChip(
-                label: Text(loc.plannerNoDay),
-                selected: date == null,
-                onSelected: (_) => setState(() => date = null),
-              ),
+              if (widget.allowNoDay)
+                ChoiceChip(
+                  label: Text(loc.plannerNoDay),
+                  selected: date == null,
+                  onSelected: (_) => setState(() => date = null),
+                ),
               for (final day in days)
                 ChoiceChip(
                   label: Text(day == today

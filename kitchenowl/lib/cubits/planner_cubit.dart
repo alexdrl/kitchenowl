@@ -16,6 +16,22 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
   final Household household;
   bool _refreshLock = false;
 
+  /// Oldest day whose text notes are loaded. Starts a few weeks back and
+  /// grows when the user browses older weeks, so old notes aren't
+  /// downloaded on every refresh.
+  DateTime _notesFrom = () {
+    final now = DateTime.now();
+    return DateTime.utc(now.year, now.month, now.day - 7 * 8);
+  }();
+
+  /// Makes sure notes from [day] on are loaded (called when browsing back).
+  Future<void> loadNotesFrom(DateTime day) async {
+    final utc = DateTime.utc(day.year, day.month, day.day);
+    if (!utc.isBefore(_notesFrom)) return;
+    _notesFrom = utc;
+    await refresh();
+  }
+
   PlannerCubit(this.household) : super(const LoadingPlannerCubitState()) {
     refresh();
   }
@@ -57,33 +73,46 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
   /// Moves a plan to another day and/or meal, keeping its yields.
   Future<void> move(RecipePlan plan, DateTime? cookingDate, Meal meal) async {
     if (plan.cookingDate == cookingDate && plan.meal == meal) return;
+    // One request: the server removes the old slot and adds the new one
+    // together, without logging it as dropped and re-added in the history
     await TransactionHandler.getInstance()
-        .runTransaction(TransactionPlannerRemoveRecipe(
+        .runTransaction(TransactionPlannerAddRecipe(
       household: household,
-      recipe: plan.recipe,
-      cookingDate: plan.isWithoutPlannedDay ? null : plan.cookingDate,
-      meal: plan.meal,
+      recipePlan: RecipePlan(
+        recipe: plan.recipe,
+        cookingDate: cookingDate,
+        meal: meal,
+        yields: plan.yields,
+      ),
+      moveFromDate: plan.isWithoutPlannedDay ? null : plan.cookingDate,
+      moveFromMeal: plan.meal,
     ));
-    await add(plan.recipe, cookingDate, meal, plan.yields);
-  }
-
-  /// Text meals (no recipe). Online only: offline they are simply hidden.
-  Future<void> addNote(DateTime cookingDate, Meal meal, String text) async {
-    await ApiService.getInstance().addPlannerNote(
-      household,
-      PlannerNote(cookingDate: cookingDate, meal: meal, text: text.trim()),
-    );
     await refresh();
   }
 
-  Future<void> updateNote(PlannerNote note) async {
-    await ApiService.getInstance().updatePlannerNote(household, note);
-    await refresh();
-  }
+  /// Text meals (no recipe) are online only: these return false when the
+  /// server didn't take the change, so the page can tell the user.
+  Future<bool> addNote(DateTime cookingDate, Meal meal, String text) =>
+      _noteRequest(() => ApiService.getInstance().addPlannerNote(
+            household,
+            PlannerNote(cookingDate: cookingDate, meal: meal, text: text.trim()),
+          ));
 
-  Future<void> removeNote(PlannerNote note) async {
-    await ApiService.getInstance().deletePlannerNote(household, note);
+  Future<bool> updateNote(PlannerNote note) => _noteRequest(
+      () => ApiService.getInstance().updatePlannerNote(household, note));
+
+  Future<bool> removeNote(PlannerNote note) => _noteRequest(
+      () => ApiService.getInstance().deletePlannerNote(household, note));
+
+  Future<bool> _noteRequest(Future<bool> Function() request) async {
+    bool ok;
+    try {
+      ok = await request();
+    } catch (_) {
+      ok = false;
+    }
     await refresh();
+    return ok;
   }
 
   Future<List<String>> recentNoteTexts() async =>
@@ -107,7 +136,7 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
     ));
 
     final notes = ApiService.getInstance()
-        .getPlannerNotes(household)
+        .getPlannerNotes(household, from: _notesFrom)
         .catchError((_) => null);
 
     emit(LoadedPlannerCubitState(

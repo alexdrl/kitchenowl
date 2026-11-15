@@ -148,6 +148,11 @@ class Recipe(Model, DbModelAuthorizeMixin):
         res["planned_cooking_dates"] = [
             plan.cooking_date for plan in self.plans if plan.cooking_date > datetime.min
         ]
+        # Meal of each entry of planned_cooking_dates (same order), so clients
+        # can rebuild the planner from cached recipes while offline
+        res["planned_meals"] = [
+            plan.meal for plan in self.plans if plan.cooking_date > datetime.min
+        ]
         if self.photo_file:
             res["photo_hash"] = self.photo_file.blur_hash
 
@@ -176,6 +181,7 @@ class Recipe(Model, DbModelAuthorizeMixin):
             skip_columns=[
                 "planned_days",
                 "planned_cooking_dates",
+                "planned_meals",
                 "planned",
                 "suggestion_score",
                 "suggestion_rank",

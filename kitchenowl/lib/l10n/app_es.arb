@@ -565,5 +565,6 @@
   "plannerNoteInfo": "Un texto no añade ingredientes a la lista de la compra ni cuenta para las sugerencias.",
   "plannerNoteEatingOut": "Comemos fuera",
   "plannerNoteLeftovers": "Sobras",
-  "plannerNoteTakeaway": "Pedir a domicilio"
+  "plannerNoteTakeaway": "Pedir a domicilio",
+  "plannerSaveFailed": "No se ha podido guardar. Revisa la conexión y vuelve a intentarlo."
 }

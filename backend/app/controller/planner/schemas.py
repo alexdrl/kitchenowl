@@ -24,6 +24,11 @@ class AddPlannedRecipe(Schema):
     )
     yields = fields.Integer()
     meal = fields.String(validate=OneOf(MEALS))
+    # Move instead of add: the plan at from_cooking_date (absent = no day) and
+    # from_meal is removed in the same commit, and no history is recorded
+    move = fields.Boolean()
+    from_cooking_date = fields.Integer()
+    from_meal = fields.String(validate=OneOf(MEALS))
 
 
 class AddPlannerNote(Schema):

@@ -18,13 +18,26 @@ extension PlannerApi on ApiService {
     return body.map((e) => RecipePlan.fromJson(e)).toList();
   }
 
+  /// Adds a plan. With [moveFromMeal] it is a move instead: the plan on
+  /// [moveFromDate] (null = no day) and [moveFromMeal] is removed in the same
+  /// request, so the plan can't get lost halfway.
   Future<bool> addPlannedRecipe(
     Household household,
-    RecipePlan recipePlan,
-  ) async {
+    RecipePlan recipePlan, {
+    DateTime? moveFromDate,
+    Meal? moveFromMeal,
+  }) async {
     final res = await post(
       '${householdPath(household)}$baseRoute/recipe',
-      jsonEncode(recipePlan.toJson()),
+      jsonEncode({
+        ...recipePlan.toJson(),
+        if (moveFromMeal != null) ...{
+          'move': true,
+          'from_meal': moveFromMeal.name,
+          if (moveFromDate != null)
+            'from_cooking_date': moveFromDate.millisecondsSinceEpoch,
+        },
+      }),
     );
 
     return res.statusCode == 200;
@@ -49,8 +62,13 @@ extension PlannerApi on ApiService {
     return res.statusCode == 200;
   }
 
-  Future<List<PlannerNote>?> getPlannerNotes(Household household) async {
-    final res = await get('${householdPath(household)}$baseRoute/notes');
+  /// Notes on or after [from] (all of them when null)
+  Future<List<PlannerNote>?> getPlannerNotes(
+    Household household, {
+    DateTime? from,
+  }) async {
+    final query = from != null ? '?from=${from.millisecondsSinceEpoch}' : '';
+    final res = await get('${householdPath(household)}$baseRoute/notes$query');
     if (res.statusCode != 200) return null;
 
     return List.from(jsonDecode(res.body))

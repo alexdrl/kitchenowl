@@ -1,5 +1,5 @@
 from app.errors import NotFoundRequest
-from flask import jsonify, Blueprint
+from flask import jsonify, Blueprint, request
 from flask_jwt_extended import jwt_required
 from app import db
 from app.helpers import validate_args, authorize_household
@@ -93,6 +93,8 @@ def addPlannedRecipe(args, household_id):
         # if outdated "day" was used, transform it into next date with that weekday
         cooking_date = next_weekday(args["day"])
     meal = args.get("meal", MEAL_ANY)
+    if args.get("move"):
+        return _move_planned_recipe(args, household_id, recipe, cooking_date, meal)
     planner = Planner.find_by_datetime(
         household_id=household_id,
         recipe_id=recipe.id,
@@ -119,6 +121,38 @@ def addPlannedRecipe(args, household_id):
 
         RecipeHistory.create_added(recipe, household_id)
 
+    return jsonify(recipe.obj_to_dict())
+
+
+def _move_planned_recipe(args, household_id, recipe, cooking_date, meal):
+    """Moves a plan to another day/meal in one commit, without recording
+    it as dropped and re-added in the recipe history."""
+    from_date = (
+        datetime.fromtimestamp(args["from_cooking_date"] / 1000, timezone.utc).date()
+        if "from_cooking_date" in args
+        else date.min
+    )
+    from_meal = args.get("from_meal", MEAL_ANY)
+    source = Planner.find_by_datetime(
+        household_id, recipe_id=recipe.id, cooking_date=from_date, meal=from_meal
+    )
+    target = Planner.find_by_datetime(
+        household_id, recipe_id=recipe.id, cooking_date=cooking_date, meal=meal
+    )
+    if source and source is not target:
+        db.session.delete(source)
+    if not target:
+        target = Planner()
+        target.recipe_id = recipe.id
+        target.household_id = household_id
+        target.cooking_date = datetime.combine(cooking_date, datetime.min.time())
+        target.meal = meal
+        if "yields" in args:
+            target.yields = args["yields"]
+        elif source:
+            target.yields = source.yields
+        db.session.add(target)
+    db.session.commit()
     return jsonify(recipe.obj_to_dict())
 
 
@@ -201,8 +235,15 @@ def _find_note(household_id: int, id: int) -> PlannerNote:
 @jwt_required()
 @authorize_household()
 def getPlannerNotes(household_id):
+    # Optional ?from=<ms>: only notes on or after that day
+    since = request.args.get("from", type=int)
     return jsonify(
-        [n.obj_to_dict() for n in PlannerNote.all_from_household(household_id)]
+        [
+            n.obj_to_dict()
+            for n in PlannerNote.all_from_household(
+                household_id, _note_date(since) if since is not None else None
+            )
+        ]
     )
 
 

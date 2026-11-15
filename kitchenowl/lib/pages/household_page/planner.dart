@@ -169,9 +169,12 @@ class _PlannerPageState extends State<PlannerPage> {
                             ),
                             if (weekView)
                               PopupMenuButton<bool>(
-                                onSelected: (value) => context
-                                    .read<HouseholdCubit>()
-                                    .setPlannerBreakfast(value),
+                                onSelected: (value) async => _reportFailure(
+                                  context,
+                                  await context
+                                      .read<HouseholdCubit>()
+                                      .setPlannerBreakfast(value),
+                                ),
                                 itemBuilder: (context) => [
                                   CheckedPopupMenuItem(
                                     value: !showBreakfast,
@@ -546,7 +549,10 @@ class _PlannerPageState extends State<PlannerPage> {
             children: [
               IconButton(
                 tooltip: loc.plannerPreviousWeek,
-                onPressed: () => setState(() => weekOffset--),
+                onPressed: () {
+                  setState(() => weekOffset--);
+                  cubit.loadNotesFrom(plannerWeekStart(weekOffset));
+                },
                 icon: const Icon(Icons.chevron_left_rounded),
               ),
               Expanded(
@@ -631,16 +637,22 @@ class _PlannerPageState extends State<PlannerPage> {
                 if (choice?.recipe != null) {
                   await cubit.add(choice!.recipe!, cookingDate, meal);
                 } else if (choice?.text != null) {
-                  await cubit.addNote(cookingDate, meal, choice!.text!);
+                  final ok =
+                      await cubit.addNote(cookingDate, meal, choice!.text!);
+                  if (context.mounted) _reportFailure(context, ok);
                 }
               },
               onDrop: (data, cookingDate, meal) {
                 if (data is RecipePlan) {
                   cubit.move(data, cookingDate, meal);
                 } else if (data is PlannerNote) {
-                  cubit.updateNote(
-                    data.copyWith(cookingDate: cookingDate, meal: meal),
-                  );
+                  cubit
+                      .updateNote(
+                        data.copyWith(cookingDate: cookingDate, meal: meal),
+                      )
+                      .then((ok) {
+                    if (context.mounted) _reportFailure(context, ok);
+                  });
                 } else if (data is Recipe) {
                   // Planning an unplanned recipe replaces its "no day" entry
                   cubit.add(data, cookingDate, meal);
@@ -719,7 +731,8 @@ class _PlannerPageState extends State<PlannerPage> {
           textOnly: true,
         );
         if (choice?.text != null) {
-          await cubit.updateNote(note.copyWith(text: choice!.text));
+          final ok = await cubit.updateNote(note.copyWith(text: choice!.text));
+          if (context.mounted) _reportFailure(context, ok);
         }
       case 'move':
         final slot = await showPlannerAddSheet(
@@ -729,18 +742,31 @@ class _PlannerPageState extends State<PlannerPage> {
               context.read<HouseholdCubit>().state.household.plannerBreakfast ??
                   true,
           initialDate: note.cookingDate,
-          initialMeal: note.meal == Meal.any ? null : note.meal,
+          initialMeal: note.meal,
+          allowNoDay: false,
         );
-        // A note always has a day: "no day" keeps the current one
         if (slot != null) {
-          await cubit.updateNote(note.copyWith(
+          final ok = await cubit.updateNote(note.copyWith(
             cookingDate: slot.cookingDate ?? note.cookingDate,
             meal: slot.meal,
           ));
+          if (context.mounted) _reportFailure(context, ok);
         }
       case 'remove':
-        await cubit.removeNote(note);
+        final ok = await cubit.removeNote(note);
+        if (context.mounted) _reportFailure(context, ok);
     }
+  }
+
+  /// Text meals and the breakfast setting aren't queued offline: say so
+  /// when the server didn't take a change instead of losing it silently.
+  void _reportFailure(BuildContext context, bool ok) {
+    if (ok) return;
+    showSnackbar(
+      context: context,
+      width: null,
+      content: Text(AppLocalizations.of(context)!.plannerSaveFailed),
+    );
   }
 
   Future<void> _onPlanPressed(
@@ -793,7 +819,7 @@ class _PlannerPageState extends State<PlannerPage> {
               context.read<HouseholdCubit>().state.household.plannerBreakfast ??
                   true,
           initialDate: plan.isWithoutPlannedDay ? null : plan.cookingDate,
-          initialMeal: plan.meal == Meal.any ? null : plan.meal,
+          initialMeal: plan.meal,
         );
         if (slot != null) await cubit.move(plan, slot.cookingDate, slot.meal);
       case 'remove':

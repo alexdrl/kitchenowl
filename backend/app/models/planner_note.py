@@ -44,10 +44,14 @@ class PlannerNote(Model, DbModelAuthorizeMixin):
     )
 
     @classmethod
-    def all_from_household(cls, household_id: int) -> list[Self]:
+    def all_from_household(
+        cls, household_id: int, since: datetime | None = None
+    ) -> list[Self]:
+        query = cls.query.filter(cls.household_id == household_id)
+        if since is not None:
+            query = query.filter(cls.cooking_date >= since)
         return (
-            cls.query.filter(cls.household_id == household_id)
-            .order_by(
+            query.order_by(
                 cls.cooking_date,
                 case(
                     {m: i for i, m in enumerate(MEALS)},

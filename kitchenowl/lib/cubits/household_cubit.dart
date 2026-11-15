@@ -26,10 +26,17 @@ class HouseholdCubit extends Cubit<HouseholdState> {
     }
   }
 
-  Future<void> setPlannerBreakfast(bool value) async {
-    await ApiService.getInstance()
-        .setHouseholdPlannerBreakfast(state.household, value);
+  /// Returns false when the server didn't save it (e.g. offline).
+  Future<bool> setPlannerBreakfast(bool value) async {
+    bool ok;
+    try {
+      ok = await ApiService.getInstance()
+          .setHouseholdPlannerBreakfast(state.household, value);
+    } catch (_) {
+      ok = false;
+    }
     await refresh();
+    return ok;
   }
 }
 
