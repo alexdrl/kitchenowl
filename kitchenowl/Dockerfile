@@ -3,6 +3,10 @@
 # ------------
 FROM --platform=$BUILDPLATFORM debian:latest AS builder
 
+# Rootless builders (buildkit in a pod) cannot chown to the uids stored in
+# Flutter's artifact tarballs; extracting them as the current user is enough.
+ENV TAR_OPTIONS=--no-same-owner
+
 # Install dependencies
 RUN apt-get update -y
 RUN apt-get upgrade -y
