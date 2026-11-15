@@ -608,11 +608,11 @@ class _PlannerPageState extends State<PlannerPage> {
           sliver: SliverToBoxAdapter(
             child: PlannerWeekView(
               // Fit the grid in what is left of the screen: minus the slivers
-              // above, this padding and the drag hint below
+              // above, this padding and the one-line drag hint below
               maxHeight: (constraints.viewportMainAxisExtent -
                       constraints.precedingScrollExtent -
-                      12 -
-                      28)
+                      16 -
+                      MediaQuery.textScalerOf(context).scale(20))
                   .clamp(0.0, double.infinity),
               state: state,
               weekStart: weekStart,
