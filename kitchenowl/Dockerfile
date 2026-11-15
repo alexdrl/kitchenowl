@@ -53,7 +53,9 @@ WORKDIR /usr/local/src/app
 RUN flutter packages get
 
 # Build the app for the web
-RUN flutter build web --release --wasm --no-web-resources-cdn --web-content-hash
+# JavaScript, as the releases ship: the wasm build of current main dies at
+# startup with "Unsupported operation: Platform._operatingSystem"
+RUN flutter build web --release --no-web-resources-cdn --web-content-hash
 
 # ------------
 # RUNNER
