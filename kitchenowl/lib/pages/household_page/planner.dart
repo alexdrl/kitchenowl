@@ -602,42 +602,51 @@ class _PlannerPageState extends State<PlannerPage> {
             ),
           ),
         ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-        sliver: SliverToBoxAdapter(
-          child: PlannerWeekView(
-            state: state,
-            weekStart: weekStart,
-            showBreakfast: showBreakfast,
-            onPlanPressed: (plan) => _onPlanPressed(context, cubit, plan),
-            onNotePressed: (note) => _onNotePressed(context, cubit, note),
-            onAddPressed: (cookingDate, meal) async {
-              final choice = await showPlannerSlotSheet(
-                context,
-                title: _slotTitle(context, cookingDate, meal),
-                recipes: TransactionHandler.getInstance().runTransaction(
-                  TransactionRecipeGetRecipes(household: cubit.household),
-                ),
-                recentTexts: cubit.recentNoteTexts(),
-              );
-              if (choice?.recipe != null) {
-                await cubit.add(choice!.recipe!, cookingDate, meal);
-              } else if (choice?.text != null) {
-                await cubit.addNote(cookingDate, meal, choice!.text!);
-              }
-            },
-            onDrop: (data, cookingDate, meal) {
-              if (data is RecipePlan) {
-                cubit.move(data, cookingDate, meal);
-              } else if (data is PlannerNote) {
-                cubit.updateNote(
-                  data.copyWith(cookingDate: cookingDate, meal: meal),
+      SliverLayoutBuilder(
+        builder: (context, constraints) => SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+          sliver: SliverToBoxAdapter(
+            child: PlannerWeekView(
+              // Fit the grid in what is left of the screen: minus the slivers
+              // above, this padding and the drag hint below
+              maxHeight: (constraints.viewportMainAxisExtent -
+                      constraints.precedingScrollExtent -
+                      12 -
+                      28)
+                  .clamp(0.0, double.infinity),
+              state: state,
+              weekStart: weekStart,
+              showBreakfast: showBreakfast,
+              onPlanPressed: (plan) => _onPlanPressed(context, cubit, plan),
+              onNotePressed: (note) => _onNotePressed(context, cubit, note),
+              onAddPressed: (cookingDate, meal) async {
+                final choice = await showPlannerSlotSheet(
+                  context,
+                  title: _slotTitle(context, cookingDate, meal),
+                  recipes: TransactionHandler.getInstance().runTransaction(
+                    TransactionRecipeGetRecipes(household: cubit.household),
+                  ),
+                  recentTexts: cubit.recentNoteTexts(),
                 );
-              } else if (data is Recipe) {
-                // Planning an unplanned recipe replaces its "no day" entry
-                cubit.add(data, cookingDate, meal);
-              }
-            },
+                if (choice?.recipe != null) {
+                  await cubit.add(choice!.recipe!, cookingDate, meal);
+                } else if (choice?.text != null) {
+                  await cubit.addNote(cookingDate, meal, choice!.text!);
+                }
+              },
+              onDrop: (data, cookingDate, meal) {
+                if (data is RecipePlan) {
+                  cubit.move(data, cookingDate, meal);
+                } else if (data is PlannerNote) {
+                  cubit.updateNote(
+                    data.copyWith(cookingDate: cookingDate, meal: meal),
+                  );
+                } else if (data is Recipe) {
+                  // Planning an unplanned recipe replaces its "no day" entry
+                  cubit.add(data, cookingDate, meal);
+                }
+              },
+            ),
           ),
         ),
       ),

@@ -46,9 +46,43 @@ class PlannerWeekView extends StatelessWidget {
     required this.onNotePressed,
     required this.onAddPressed,
     required this.onDrop,
+    this.maxHeight,
   });
 
+  /// Height left on screen for the wide grid (header included). Rows shrink
+  /// to fit it, down to a minimum; null keeps the full row height.
+  final double? maxHeight;
+
   static const double wideBreakpoint = 720;
+  static const double _headerHeight = 58;
+  static const double _maxRow = 176;
+  static const double _minRow = 104;
+  static const double _emptyRow = 64;
+
+  bool _isEmptyRow(Meal meal) =>
+      days.every((d) => _plans(d, meal).isEmpty && _notes(d, meal).isEmpty);
+
+  /// Row heights for the wide grid. When the rows don't fit at full height,
+  /// rows with nothing planned this week (often breakfast) get compact and
+  /// leave their space to the rest.
+  List<double> _rowHeights(List<Meal> meals) {
+    if (maxHeight == null) return [for (final _ in meals) _maxRow];
+    final available = maxHeight! - _headerHeight;
+    if (available >= _maxRow * meals.length) {
+      return [for (final _ in meals) _maxRow];
+    }
+    final empty = [for (final m in meals) _isEmptyRow(m)];
+    final emptyCount = empty.where((e) => e).length;
+    if (emptyCount == 0 || emptyCount == meals.length) {
+      final min = emptyCount == 0 ? _minRow : _emptyRow;
+      final h = (available / meals.length).clamp(min, _maxRow);
+      return [for (final _ in meals) h];
+    }
+    final full = ((available - emptyCount * _emptyRow) /
+            (meals.length - emptyCount))
+        .clamp(_minRow, _maxRow);
+    return [for (final e in empty) e ? _emptyRow : full];
+  }
 
   List<DateTime> get days =>
       List.generate(
@@ -97,23 +131,27 @@ class PlannerWeekView extends StatelessWidget {
 
   Widget _buildWide(BuildContext context) {
     final meals = this.meals;
+    final heights = _rowHeights(meals);
     return Column(
       children: [
-        Row(
-          children: [
-            const SizedBox(width: 96),
-            for (final day in days)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: _DayHeader(day: day),
+        SizedBox(
+          height: _headerHeight,
+          child: Row(
+            children: [
+              const SizedBox(width: 96),
+              for (final day in days)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: _DayHeader(day: day),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-        for (final meal in meals)
+        for (final (i, meal) in meals.indexed)
           SizedBox(
-            height: 176,
+            height: heights[i],
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
