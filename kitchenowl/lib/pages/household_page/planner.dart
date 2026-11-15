@@ -536,6 +536,7 @@ class _PlannerPageState extends State<PlannerPage> {
       weekStart.day + 6,
     );
     final unplanned = state.getPlannedWithoutDay();
+    final locale = Localizations.localeOf(context).toString();
 
     return [
       SliverPadding(
@@ -552,8 +553,8 @@ class _PlannerPageState extends State<PlannerPage> {
                 child: Column(
                   children: [
                     Text(
-                      '${DateFormat.MMMd().format(weekStart)} – '
-                      '${DateFormat.MMMd().format(weekEnd)}',
+                      '${DateFormat.MMMd(locale).format(weekStart)} – '
+                      '${DateFormat.MMMd(locale).format(weekEnd)}',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     if (weekOffset == 0)
@@ -654,7 +655,7 @@ class _PlannerPageState extends State<PlannerPage> {
 
   String _slotTitle(BuildContext context, DateTime cookingDate, Meal meal) {
     final day = DateTime(cookingDate.year, cookingDate.month, cookingDate.day);
-    return '${DateFormat('EEEE d').format(day)} · '
+    return '${DateFormat('EEEE d', Localizations.localeOf(context).toString()).format(day)} · '
         '${meal.toLocalizedString(context)}';
   }
 

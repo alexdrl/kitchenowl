@@ -113,13 +113,13 @@ class _PlannerAddSheetState extends State<_PlannerAddSheet> {
                 ChoiceChip(
                   label: Text(day == today
                       ? loc.today
-                      : DateFormat('E d').format(day)),
+                      : DateFormat('E d', Localizations.localeOf(context).toString()).format(day)),
                   selected: date == day,
                   onSelected: (_) => setState(() => date = day),
                 ),
               if (customDate != null)
                 ChoiceChip(
-                  label: Text(DateFormat.yMMMd().format(customDate)),
+                  label: Text(DateFormat.yMMMd(Localizations.localeOf(context).toString()).format(customDate)),
                   selected: true,
                   onSelected: (_) {},
                 ),

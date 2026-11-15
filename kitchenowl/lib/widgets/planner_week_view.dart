@@ -221,7 +221,7 @@ class _DayHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            DateFormat('E').format(day).toUpperCase(),
+            DateFormat('E', Localizations.localeOf(context).toString()).format(day).toUpperCase(),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: today ? scheme.primary : scheme.onSurfaceVariant,
                 ),
