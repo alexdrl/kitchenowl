@@ -4,6 +4,7 @@ import 'package:kitchenowl/cubits/planner_cubit.dart';
 import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/kitchenowl.dart';
 import 'package:kitchenowl/models/planner.dart';
+import 'package:kitchenowl/models/planner_note.dart';
 import 'package:kitchenowl/models/recipe.dart';
 
 /// Monday (local midnight) of the week `offset` weeks away from today.
@@ -17,8 +18,8 @@ DateTime plannerWeekStart(int offset, [DateTime? now]) {
   );
 }
 
-/// What can be dropped on a slot: an already planned recipe (moved) or a
-/// recipe from the "no day" strip or the suggestions (added).
+/// What can be dropped on a slot: an already planned recipe or a text note
+/// (moved) or a recipe from the "no day" strip or the suggestions (added).
 typedef PlannerDragData = Object;
 
 /// Weekly calendar of the planner.
@@ -31,6 +32,7 @@ class PlannerWeekView extends StatelessWidget {
   final DateTime weekStart;
   final bool showBreakfast;
   final void Function(RecipePlan plan) onPlanPressed;
+  final void Function(PlannerNote note) onNotePressed;
   final void Function(DateTime cookingDate, Meal meal) onAddPressed;
   final void Function(PlannerDragData data, DateTime cookingDate, Meal meal)
       onDrop;
@@ -41,6 +43,7 @@ class PlannerWeekView extends StatelessWidget {
     required this.weekStart,
     required this.showBreakfast,
     required this.onPlanPressed,
+    required this.onNotePressed,
     required this.onAddPressed,
     required this.onDrop,
   });
@@ -58,7 +61,8 @@ class PlannerWeekView extends StatelessWidget {
 
   List<Meal> get meals {
     final hasOther = days.any((d) =>
-        state.getPlannedOfDateAndMeals(_utc(d), _otherMeals).isNotEmpty);
+        state.getPlannedOfDateAndMeals(_utc(d), _otherMeals).isNotEmpty ||
+        state.getNotesOfDateAndMeals(_utc(d), _otherMeals).isNotEmpty);
     return [
       if (showBreakfast) Meal.breakfast,
       Meal.lunch,
@@ -71,6 +75,12 @@ class PlannerWeekView extends StatelessWidget {
 
   List<RecipePlan> _plans(DateTime day, Meal meal) =>
       state.getPlannedOfDateAndMeals(
+        _utc(day),
+        meal == Meal.any ? _otherMeals : {meal},
+      );
+
+  List<PlannerNote> _notes(DateTime day, Meal meal) =>
+      state.getNotesOfDateAndMeals(
         _utc(day),
         meal == Meal.any ? _otherMeals : {meal},
       );
@@ -122,8 +132,10 @@ class PlannerWeekView extends StatelessWidget {
                         day: day,
                         meal: meal,
                         plans: _plans(day, meal),
+                        notes: _notes(day, meal),
                         large: true,
                         onPlanPressed: onPlanPressed,
+                        onNotePressed: onNotePressed,
                         onAddPressed: onAddPressed,
                         onDrop: onDrop,
                       ),
@@ -167,8 +179,10 @@ class PlannerWeekView extends StatelessWidget {
                         day: day,
                         meal: meal,
                         plans: _plans(day, meal),
+                        notes: _notes(day, meal),
                         large: false,
                         onPlanPressed: onPlanPressed,
+                        onNotePressed: onNotePressed,
                         onAddPressed: onAddPressed,
                         onDrop: onDrop,
                       ),
@@ -279,8 +293,10 @@ class _Slot extends StatelessWidget {
   final DateTime day;
   final Meal meal;
   final List<RecipePlan> plans;
+  final List<PlannerNote> notes;
   final bool large;
   final void Function(RecipePlan plan) onPlanPressed;
+  final void Function(PlannerNote note) onNotePressed;
   final void Function(DateTime cookingDate, Meal meal) onAddPressed;
   final void Function(PlannerDragData data, DateTime cookingDate, Meal meal)
       onDrop;
@@ -289,8 +305,10 @@ class _Slot extends StatelessWidget {
     required this.day,
     required this.meal,
     required this.plans,
+    required this.notes,
     required this.large,
     required this.onPlanPressed,
+    required this.onNotePressed,
     required this.onAddPressed,
     required this.onDrop,
   });
@@ -300,12 +318,14 @@ class _Slot extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final utc = DateTime.utc(day.year, day.month, day.day);
     return DragTarget<PlannerDragData>(
-      onWillAcceptWithDetails: (d) => d.data is RecipePlan || d.data is Recipe,
+      onWillAcceptWithDetails: (d) =>
+          d.data is RecipePlan || d.data is Recipe || d.data is PlannerNote,
       onAcceptWithDetails: (d) => onDrop(d.data, utc, meal),
       builder: (context, candidates, _) {
         final hovering = candidates.isNotEmpty;
         Widget child;
-        if (plans.isEmpty || hovering) {
+        final count = plans.length + notes.length;
+        if (count == 0 || hovering) {
           child = Material(
             color: hovering ? scheme.primaryContainer.withAlpha(120) : null,
             shape: RoundedRectangleBorder(
@@ -336,14 +356,29 @@ class _Slot extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
-                      bottom: plan == plans.last ? 0 : 4,
+                      bottom: plan == plans.last && notes.isEmpty ? 0 : 4,
                     ),
                     child: _PlanCard(
                       plan: plan,
                       meal: meal == Meal.any ? plan.meal : meal,
-                      large: large && plans.length == 1,
-                      dense: plans.length > 1,
+                      large: large && count == 1,
+                      dense: count > 1,
                       onPressed: () => onPlanPressed(plan),
+                    ),
+                  ),
+                ),
+              for (final note in notes)
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: note == notes.last ? 0 : 4,
+                    ),
+                    child: _NoteCard(
+                      note: note,
+                      meal: meal == Meal.any ? note.meal : meal,
+                      large: large && count == 1,
+                      dense: count > 1,
+                      onPressed: () => onNotePressed(note),
                     ),
                   ),
                 ),
@@ -352,6 +387,81 @@ class _Slot extends StatelessWidget {
         }
         return Opacity(opacity: _isPast(day) ? .55 : 1, child: child);
       },
+    );
+  }
+}
+
+class _NoteCard extends StatelessWidget {
+  final PlannerNote note;
+  final Meal meal;
+  final bool large;
+  final bool dense;
+  final VoidCallback onPressed;
+
+  const _NoteCard({
+    required this.note,
+    required this.meal,
+    required this.large,
+    required this.dense,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final (bg, fg) = meal.colors(context);
+    final scheme = Theme.of(context).colorScheme;
+    final text = Text(
+      note.text,
+      maxLines: dense ? 1 : (large ? 4 : 2),
+      overflow: TextOverflow.ellipsis,
+      textAlign: large ? TextAlign.center : TextAlign.start,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: fg,
+            fontStyle: FontStyle.italic,
+            height: 1.2,
+          ),
+    );
+    final card = Material(
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: bg, width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: dense ? 2 : 6),
+          child: dense
+              ? Row(
+                  children: [
+                    Icon(Icons.storefront_rounded, size: 12, color: fg),
+                    const SizedBox(width: 4),
+                    Expanded(child: text),
+                  ],
+                )
+              : Column(
+                  mainAxisAlignment: large
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: large
+                      ? CrossAxisAlignment.center
+                      : CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.storefront_rounded,
+                        size: large ? 24 : 16, color: fg),
+                    if (large) const SizedBox(height: 8),
+                    Flexible(child: text),
+                  ],
+                ),
+        ),
+      ),
+    );
+    return LongPressDraggable<PlannerDragData>(
+      data: note,
+      feedback: _DragFeedback(name: note.text, color: bg, textColor: fg),
+      childWhenDragging: Opacity(opacity: .3, child: card),
+      child: card,
     );
   }
 }
@@ -514,48 +624,207 @@ class PlannerDraggableRecipeChip extends StatelessWidget {
   }
 }
 
-/// Bottom sheet listing the household's recipes with a search field.
-Future<Recipe?> showPlannerRecipePicker(
-  BuildContext context,
-  Future<List<Recipe>> recipes,
-) {
-  return showModalBottomSheet<Recipe>(
+/// What the user chose for an empty slot: a recipe, or a free text.
+typedef PlannerSlotChoice = ({Recipe? recipe, String? text});
+
+/// Bottom sheet for an empty slot: pick a recipe (searchable) or write a
+/// text meal such as "Dinner at X".
+Future<PlannerSlotChoice?> showPlannerSlotSheet(
+  BuildContext context, {
+  required String title,
+  required Future<List<Recipe>> recipes,
+  required Future<List<String>> recentTexts,
+  String? initialText,
+  bool textOnly = false,
+}) {
+  return showModalBottomSheet<PlannerSlotChoice>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
     builder: (context) => DraggableScrollableSheet(
       expand: false,
-      initialChildSize: .7,
+      initialChildSize: .75,
       minChildSize: .4,
-      builder: (context, controller) =>
-          _RecipePicker(recipes: recipes, controller: controller),
+      builder: (context, controller) => _SlotSheet(
+        title: title,
+        recipes: recipes,
+        recentTexts: recentTexts,
+        controller: controller,
+        initialText: initialText,
+        textOnly: textOnly,
+      ),
     ),
   );
 }
 
-class _RecipePicker extends StatefulWidget {
+class _SlotSheet extends StatefulWidget {
+  final String title;
   final Future<List<Recipe>> recipes;
+  final Future<List<String>> recentTexts;
   final ScrollController controller;
+  final String? initialText;
+  final bool textOnly;
 
-  const _RecipePicker({required this.recipes, required this.controller});
+  const _SlotSheet({
+    required this.title,
+    required this.recipes,
+    required this.recentTexts,
+    required this.controller,
+    this.initialText,
+    this.textOnly = false,
+  });
 
   @override
-  State<_RecipePicker> createState() => _RecipePickerState();
+  State<_SlotSheet> createState() => _SlotSheetState();
 }
 
-class _RecipePickerState extends State<_RecipePicker> {
+class _SlotSheetState extends State<_SlotSheet> {
+  late bool textMode = widget.textOnly || widget.initialText != null;
   String query = '';
+  late final TextEditingController textController =
+      TextEditingController(text: widget.initialText);
+
+  @override
+  void dispose() {
+    textController.dispose();
+    super.dispose();
+  }
+
+  void _submitText([String? value]) {
+    final text = (value ?? textController.text).trim();
+    if (text.isEmpty) return;
+    Navigator.of(context).pop<PlannerSlotChoice>((recipe: null, text: text));
+  }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Text(
+              widget.title,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          if (!widget.textOnly)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(
+                    value: false,
+                    icon: const Icon(Icons.restaurant_menu_rounded),
+                    label: Text(loc.plannerRecipe),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    icon: const Icon(Icons.edit_note_rounded),
+                    label: Text(loc.plannerText),
+                  ),
+                ],
+                selected: {textMode},
+                onSelectionChanged: (s) => setState(() => textMode = s.first),
+              ),
+            ),
+          Expanded(child: textMode ? _buildText(context) : _buildRecipes(context)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildText(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final defaults = [
+      loc.plannerNoteEatingOut,
+      loc.plannerNoteLeftovers,
+      loc.plannerNoteTakeaway,
+    ];
+    return ListView(
+      controller: widget.controller,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        TextField(
+          controller: textController,
+          autofocus: true,
+          maxLength: 256,
+          textInputAction: TextInputAction.done,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(
+            labelText: loc.plannerNoteHint,
+            border: const OutlineInputBorder(),
+          ),
+          onSubmitted: _submitText,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          loc.plannerRecentNotes,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<String>>(
+          future: widget.recentTexts,
+          builder: (context, snapshot) {
+            final texts = <String>{...?snapshot.data, ...defaults}.toList();
+            return Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final t in texts)
+                  ActionChip(
+                    label: Text(t),
+                    onPressed: () => setState(() {
+                      textController.text = t;
+                      textController.selection =
+                          TextSelection.collapsed(offset: t.length);
+                    }),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        Text(
+          loc.plannerNoteInfo,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(loc.cancel),
+            ),
+            const SizedBox(width: 8),
+            ValueListenableBuilder(
+              valueListenable: textController,
+              builder: (context, value, _) => FilledButton(
+                onPressed: value.text.trim().isEmpty ? null : _submitText,
+                child: Text(
+                  widget.initialText != null ? loc.save : loc.add,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildRecipes(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: TextField(
-            autofocus: true,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search_rounded),
               hintText: loc.plannerPickRecipe,
@@ -583,7 +852,9 @@ class _RecipePickerState extends State<_RecipePicker> {
                 itemBuilder: (context, i) => ListTile(
                   leading: const Icon(Icons.restaurant_rounded),
                   title: Text(recipes[i].name),
-                  onTap: () => Navigator.of(context).pop(recipes[i]),
+                  onTap: () => Navigator.of(context).pop<PlannerSlotChoice>(
+                    (recipe: recipes[i], text: null),
+                  ),
                 ),
               );
             },

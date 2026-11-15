@@ -4,8 +4,10 @@ import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/item.dart';
 import 'package:kitchenowl/models/planner.dart';
+import 'package:kitchenowl/models/planner_note.dart';
 import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
+import 'package:kitchenowl/services/api/api_service.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
 import 'package:kitchenowl/services/transactions/planner.dart';
 import 'package:kitchenowl/services/transactions/shoppinglist.dart';
@@ -65,6 +67,29 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
     await add(plan.recipe, cookingDate, meal, plan.yields);
   }
 
+  /// Text meals (no recipe). Online only: offline they are simply hidden.
+  Future<void> addNote(DateTime cookingDate, Meal meal, String text) async {
+    await ApiService.getInstance().addPlannerNote(
+      household,
+      PlannerNote(cookingDate: cookingDate, meal: meal, text: text.trim()),
+    );
+    await refresh();
+  }
+
+  Future<void> updateNote(PlannerNote note) async {
+    await ApiService.getInstance().updatePlannerNote(household, note);
+    await refresh();
+  }
+
+  Future<void> removeNote(PlannerNote note) async {
+    await ApiService.getInstance().deletePlannerNote(household, note);
+    await refresh();
+  }
+
+  Future<List<String>> recentNoteTexts() async =>
+      await ApiService.getInstance().getRecentPlannerNoteTexts(household) ??
+      const [];
+
   Future<void> refresh() async {
     if (_refreshLock) return;
     _refreshLock = true;
@@ -81,10 +106,15 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
       household: household,
     ));
 
+    final notes = ApiService.getInstance()
+        .getPlannerNotes(household)
+        .catchError((_) => null);
+
     emit(LoadedPlannerCubitState(
       await planned,
       await recent,
       await suggested,
+      await notes ?? const [],
     ));
     _refreshLock = false;
   }
@@ -128,16 +158,18 @@ class LoadedPlannerCubitState extends PlannerCubitState {
   final List<RecipePlan> recipePlans;
   final List<Recipe> recentRecipes;
   final List<Recipe> suggestedRecipes;
+  final List<PlannerNote> notes;
 
   const LoadedPlannerCubitState([
     this.recipePlans = const [],
     this.recentRecipes = const [],
     this.suggestedRecipes = const [],
+    this.notes = const [],
   ]);
 
   @override
   List<Object?> get props =>
-      recipePlans.cast<Object?>() + recentRecipes + suggestedRecipes;
+      recipePlans.cast<Object?>() + recentRecipes + suggestedRecipes + notes;
 
   LoadedPlannerCubitState copyWith({
     List<RecipePlan>? recipePlans,
@@ -149,6 +181,7 @@ class LoadedPlannerCubitState extends PlannerCubitState {
         recipePlans ?? this.recipePlans,
         recentRecipes ?? this.recentRecipes,
         suggestedRecipes ?? this.suggestedRecipes,
+        notes,
       );
 
   List<RecipePlan> getPlannedWithoutDay() {
@@ -177,6 +210,19 @@ class LoadedPlannerCubitState extends PlannerCubitState {
   ) {
     return getPlannedOfDate(cookingDate)
         .where((element) => meals.contains(element.meal))
+        .toList();
+  }
+
+  List<PlannerNote> getNotesOfDateAndMeals(
+    DateTime cookingDate,
+    Set<Meal> meals,
+  ) {
+    return notes
+        .where((n) =>
+            n.cookingDate.year == cookingDate.year &&
+            n.cookingDate.month == cookingDate.month &&
+            n.cookingDate.day == cookingDate.day &&
+            meals.contains(n.meal))
         .toList();
   }
 

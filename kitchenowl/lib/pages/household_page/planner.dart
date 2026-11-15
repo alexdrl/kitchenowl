@@ -13,6 +13,7 @@ import 'package:kitchenowl/kitchenowl.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/item.dart';
 import 'package:kitchenowl/models/planner.dart';
+import 'package:kitchenowl/models/planner_note.dart';
 import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/pages/item_selection_page.dart';
@@ -608,20 +609,29 @@ class _PlannerPageState extends State<PlannerPage> {
             weekStart: weekStart,
             showBreakfast: showBreakfast,
             onPlanPressed: (plan) => _onPlanPressed(context, cubit, plan),
+            onNotePressed: (note) => _onNotePressed(context, cubit, note),
             onAddPressed: (cookingDate, meal) async {
-              final recipe = await showPlannerRecipePicker(
+              final choice = await showPlannerSlotSheet(
                 context,
-                TransactionHandler.getInstance().runTransaction(
+                title: _slotTitle(context, cookingDate, meal),
+                recipes: TransactionHandler.getInstance().runTransaction(
                   TransactionRecipeGetRecipes(household: cubit.household),
                 ),
+                recentTexts: cubit.recentNoteTexts(),
               );
-              if (recipe != null) {
-                await cubit.add(recipe, cookingDate, meal);
+              if (choice?.recipe != null) {
+                await cubit.add(choice!.recipe!, cookingDate, meal);
+              } else if (choice?.text != null) {
+                await cubit.addNote(cookingDate, meal, choice!.text!);
               }
             },
             onDrop: (data, cookingDate, meal) {
               if (data is RecipePlan) {
                 cubit.move(data, cookingDate, meal);
+              } else if (data is PlannerNote) {
+                cubit.updateNote(
+                  data.copyWith(cookingDate: cookingDate, meal: meal),
+                );
               } else if (data is Recipe) {
                 // Planning an unplanned recipe replaces its "no day" entry
                 cubit.add(data, cookingDate, meal);
@@ -640,6 +650,87 @@ class _PlannerPageState extends State<PlannerPage> {
         ),
       ),
     ];
+  }
+
+  String _slotTitle(BuildContext context, DateTime cookingDate, Meal meal) {
+    final day = DateTime(cookingDate.year, cookingDate.month, cookingDate.day);
+    return '${DateFormat('EEEE d').format(day)} · '
+        '${meal.toLocalizedString(context)}';
+  }
+
+  Future<void> _onNotePressed(
+    BuildContext context,
+    PlannerCubit cubit,
+    PlannerNote note,
+  ) async {
+    final loc = AppLocalizations.of(context)!;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.storefront_rounded),
+              title: Text(
+                note.text,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: Text(loc.edit),
+              onTap: () => Navigator.of(context).pop('edit'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.event_rounded),
+              title: Text(loc.plannerMove),
+              onTap: () => Navigator.of(context).pop('move'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.done_rounded),
+              title: Text(loc.remove),
+              onTap: () => Navigator.of(context).pop('remove'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    switch (action) {
+      case 'edit':
+        final choice = await showPlannerSlotSheet(
+          context,
+          title: _slotTitle(context, note.cookingDate, note.meal),
+          recipes: Future.value(const []),
+          recentTexts: cubit.recentNoteTexts(),
+          initialText: note.text,
+          textOnly: true,
+        );
+        if (choice?.text != null) {
+          await cubit.updateNote(note.copyWith(text: choice!.text));
+        }
+      case 'move':
+        final slot = await showPlannerAddSheet(
+          context,
+          recipeName: note.text,
+          showBreakfast:
+              context.read<HouseholdCubit>().state.household.plannerBreakfast ??
+                  true,
+          initialDate: note.cookingDate,
+          initialMeal: note.meal == Meal.any ? null : note.meal,
+        );
+        // A note always has a day: "no day" keeps the current one
+        if (slot != null) {
+          await cubit.updateNote(note.copyWith(
+            cookingDate: slot.cookingDate ?? note.cookingDate,
+            meal: slot.meal,
+          ));
+        }
+      case 'remove':
+        await cubit.removeNote(note);
+    }
   }
 
   Future<void> _onPlanPressed(

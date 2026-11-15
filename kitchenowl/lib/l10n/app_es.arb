@@ -557,5 +557,13 @@
   "plannerMove": "Mover",
   "plannerOpenRecipe": "Ver receta",
   "plannerPickRecipe": "Elige una receta",
-  "plannerDragHint": "Mantén pulsada una receta para arrastrarla a una casilla"
+  "plannerDragHint": "Mantén pulsada una receta para arrastrarla a una casilla",
+  "plannerRecipe": "Receta",
+  "plannerText": "Texto",
+  "plannerNoteHint": "Qué coméis",
+  "plannerRecentNotes": "Usados hace poco",
+  "plannerNoteInfo": "Un texto no añade ingredientes a la lista de la compra ni cuenta para las sugerencias.",
+  "plannerNoteEatingOut": "Comemos fuera",
+  "plannerNoteLeftovers": "Sobras",
+  "plannerNoteTakeaway": "Pedir a domicilio"
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/planner.dart';
+import 'package:kitchenowl/models/planner_note.dart';
 import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
 
@@ -43,6 +44,48 @@ extension PlannerApi on ApiService {
     final res = await delete(
       '${householdPath(household)}$baseRoute/recipe/${recipe.id}',
       body: jsonEncode(body),
+    );
+
+    return res.statusCode == 200;
+  }
+
+  Future<List<PlannerNote>?> getPlannerNotes(Household household) async {
+    final res = await get('${householdPath(household)}$baseRoute/notes');
+    if (res.statusCode != 200) return null;
+
+    return List.from(jsonDecode(res.body))
+        .map((e) => PlannerNote.fromJson(e))
+        .toList();
+  }
+
+  Future<List<String>?> getRecentPlannerNoteTexts(Household household) async {
+    final res = await get('${householdPath(household)}$baseRoute/notes/recent');
+    if (res.statusCode != 200) return null;
+
+    return List<String>.from(jsonDecode(res.body));
+  }
+
+  Future<bool> addPlannerNote(Household household, PlannerNote note) async {
+    final res = await post(
+      '${householdPath(household)}$baseRoute/notes',
+      jsonEncode(note.toJson()),
+    );
+
+    return res.statusCode == 200;
+  }
+
+  Future<bool> updatePlannerNote(Household household, PlannerNote note) async {
+    final res = await post(
+      '${householdPath(household)}$baseRoute/notes/${note.id}',
+      jsonEncode(note.toJson()),
+    );
+
+    return res.statusCode == 200;
+  }
+
+  Future<bool> deletePlannerNote(Household household, PlannerNote note) async {
+    final res = await delete(
+      '${householdPath(household)}$baseRoute/notes/${note.id}',
     );
 
     return res.statusCode == 200;
