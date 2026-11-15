@@ -486,3 +486,42 @@ def test_mcp_scrape_recipe_tool_unsupported(user_client_with_household, househol
     assert 'error' in body
     assert body['error']['code'] == -32000
     assert 'Unsupported website' in body['error']['message']
+
+
+def _call(client, name, arguments):
+    return _rpc(client, 'tools/call', {'name': name, 'arguments': arguments}).get_json()
+
+
+def test_mcp_planner_meals(user_client_with_household, household_id, recipe_with_items):
+    base = {
+        'household_id': household_id,
+        'recipe_id': recipe_with_items,
+        'cooking_date': '2026-11-19T00:00:00Z',
+    }
+    for meal in ('lunch', 'dinner'):
+        body = _call(user_client_with_household, 'add_planner_entry', base | {'meal': meal})
+        assert 'error' not in body
+
+    body = _call(user_client_with_household, 'list_planner', {'household_id': household_id})
+    assert [e['meal'] for e in body['result']['structuredContent']['items']] == ['lunch', 'dinner']
+
+    body = _call(user_client_with_household, 'remove_planner_entry', base | {'meal': 'lunch'})
+    assert body['result']['structuredContent']['count'] == 1
+
+    body = _call(user_client_with_household, 'add_planner_entry', base | {'meal': 'breakfast'})
+    body = _call(user_client_with_household, 'remove_planner_entry', base)
+    assert body['result']['structuredContent']['count'] == 2
+
+
+def test_mcp_planner_rejects_invalid_meal(
+    user_client_with_household, household_id, recipe_with_items
+):
+    base = {
+        'household_id': household_id,
+        'recipe_id': recipe_with_items,
+        'cooking_date': '2026-11-19T00:00:00Z',
+        'meal': 'brunch',
+    }
+    for tool in ('add_planner_entry', 'remove_planner_entry'):
+        body = _call(user_client_with_household, tool, base)
+        assert 'error' in body

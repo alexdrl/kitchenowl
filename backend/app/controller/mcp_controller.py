@@ -689,14 +689,25 @@ def _tool_remove_planner_entry(args: dict[str, Any]) -> Any:
         Planner.recipe_id == recipe_id,
         Planner.cooking_date == cooking_date,
     )
+    # Without "meal" every meal of that day is removed, like the REST API
     if "meal" in args:
-        query = query.filter(Planner.meal == str(args["meal"]))
-    plan = query.first()
-    if not plan:
+        meal = str(args["meal"])
+        if meal not in MEALS:
+            raise InvalidUsage()
+        query = query.filter(Planner.meal == meal)
+    plans = query.all()
+    if not plans:
         return {"removed": False, "reason": "not_found"}
 
-    plan.delete()
-    return {"removed": True, "household_id": household_id, "recipe_id": recipe_id, "cooking_date": cooking_date}
+    for plan in plans:
+        plan.delete()
+    return {
+        "removed": True,
+        "count": len(plans),
+        "household_id": household_id,
+        "recipe_id": recipe_id,
+        "cooking_date": cooking_date,
+    }
 
 
 def _tool_list_planner(args: dict[str, Any]) -> Any:
