@@ -239,6 +239,29 @@ bool _isPast(DateTime day) {
   return day.isBefore(DateTime(now.year, now.month, now.day));
 }
 
+/// Fades a past day's cell to [opacity] by painting the page background over
+/// it. On that background it looks the same as an Opacity widget, but an
+/// Opacity is a compositing layer (a saveLayer in CanvasKit) per cell, and
+/// with a week of past cells every frame (hover, week change) got slow.
+Widget _dimIfPast(
+  BuildContext context,
+  DateTime day,
+  double opacity,
+  Widget child,
+) {
+  if (!_isPast(day)) return child;
+  return DecoratedBox(
+    position: DecorationPosition.foreground,
+    decoration: BoxDecoration(
+      color: Theme.of(context)
+          .scaffoldBackgroundColor
+          .withAlpha(((1 - opacity) * 255).round()),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: child,
+  );
+}
+
 class _DayHeader extends StatelessWidget {
   final DateTime day;
 
@@ -248,9 +271,11 @@ class _DayHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final today = _isToday(day);
-    return Opacity(
-      opacity: _isPast(day) ? .5 : 1,
-      child: Column(
+    return _dimIfPast(
+      context,
+      day,
+      .5,
+      Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
@@ -418,7 +443,7 @@ class _Slot extends StatelessWidget {
             ],
           );
         }
-        return Opacity(opacity: _isPast(day) ? .55 : 1, child: child);
+        return _dimIfPast(context, day, .55, child);
       },
     );
   }
