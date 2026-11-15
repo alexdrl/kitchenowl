@@ -13,7 +13,7 @@ from flask_jwt_extended import current_user, jwt_required
 
 from app import db
 from app.config import BACKEND_VERSION
-from app.errors import NotFoundRequest
+from app.errors import InvalidUsage, NotFoundRequest
 from app.models import (
     Expense,
     File,
@@ -29,6 +29,7 @@ from app.models import (
     ShoppinglistItems,
     Tag,
 )
+from app.models.planner import MEAL_ANY, MEALS
 from app.models.recipe import (
     RecipeVisibility,
     is_within_next_7_days,
@@ -653,11 +654,15 @@ def _tool_add_planner_entry(args: dict[str, Any]) -> Any:
         raise NotFoundRequest()
 
     cooking_date = datetime.fromisoformat(str(args["cooking_date"]).replace("Z", "+00:00"))
+    meal = str(args.get("meal", MEAL_ANY))
+    if meal not in MEALS:
+        raise InvalidUsage()
 
     existing = Planner.query.filter(
         Planner.household_id == household_id,
         Planner.recipe_id == recipe_id,
         Planner.cooking_date == cooking_date,
+        Planner.meal == meal,
     ).first()
     if existing:
         return existing.obj_to_full_dict()
@@ -666,6 +671,7 @@ def _tool_add_planner_entry(args: dict[str, Any]) -> Any:
         household_id=household_id,
         recipe_id=recipe_id,
         cooking_date=cooking_date,
+        meal=meal,
         yields=int(args.get("yields", 1)),
     )
     plan.save()
@@ -678,16 +684,30 @@ def _tool_remove_planner_entry(args: dict[str, Any]) -> Any:
     cooking_date = datetime.fromisoformat(str(args["cooking_date"]).replace("Z", "+00:00"))
     _require_household_access(household_id)
 
-    plan = Planner.query.filter(
+    query = Planner.query.filter(
         Planner.household_id == household_id,
         Planner.recipe_id == recipe_id,
         Planner.cooking_date == cooking_date,
-    ).first()
-    if not plan:
+    )
+    # Without "meal" every meal of that day is removed, like the REST API
+    if "meal" in args:
+        meal = str(args["meal"])
+        if meal not in MEALS:
+            raise InvalidUsage()
+        query = query.filter(Planner.meal == meal)
+    plans = query.all()
+    if not plans:
         return {"removed": False, "reason": "not_found"}
 
-    plan.delete()
-    return {"removed": True, "household_id": household_id, "recipe_id": recipe_id, "cooking_date": cooking_date}
+    for plan in plans:
+        plan.delete()
+    return {
+        "removed": True,
+        "count": len(plans),
+        "household_id": household_id,
+        "recipe_id": recipe_id,
+        "cooking_date": cooking_date,
+    }
 
 
 def _tool_list_planner(args: dict[str, Any]) -> Any:
@@ -994,6 +1014,7 @@ TOOLS: dict[str, tuple[dict[str, Any], Callable[[dict[str, Any]], Any]]] = {
                 "household_id": {"type": "integer"},
                 "recipe_id": {"type": "integer"},
                 "cooking_date": {"type": "string"},
+                "meal": {"type": "string", "enum": list(MEALS)},
                 "yields": {"type": "integer"},
             },
             "required": ["household_id", "recipe_id", "cooking_date"],
@@ -1007,6 +1028,7 @@ TOOLS: dict[str, tuple[dict[str, Any], Callable[[dict[str, Any]], Any]]] = {
                 "household_id": {"type": "integer"},
                 "recipe_id": {"type": "integer"},
                 "cooking_date": {"type": "string"},
+                "meal": {"type": "string", "enum": list(MEALS)},
             },
             "required": ["household_id", "recipe_id", "cooking_date"],
         },

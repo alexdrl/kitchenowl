@@ -13,6 +13,11 @@ class Recipe extends Model {
   final String description;
   final bool isPlanned;
   final Set<DateTime> plannedCookingDates;
+
+  /// Each planned date with its meal name ("lunch", "any"...), from
+  /// `planned_meals`; lets the planner be rebuilt offline. Empty when the
+  /// server doesn't send meals.
+  final List<(DateTime, String)> plannedSlots;
   final int time;
   final int cookTime;
   final int prepTime;
@@ -44,6 +49,7 @@ class Recipe extends Model {
     this.items = const [],
     this.tags = const {},
     this.plannedCookingDates = const {},
+    this.plannedSlots = const [],
     this.visibility = RecipeVisibility.private,
     this.householdId,
     this.household,
@@ -75,6 +81,19 @@ class Recipe extends Model {
       }
     }
 
+    final List<(DateTime, String)> plannedSlots = [];
+    final dates = map['planned_cooking_dates'];
+    final meals = map['planned_meals'];
+    if (dates is List && meals is List && dates.length == meals.length) {
+      for (var i = 0; i < dates.length; i++) {
+        if (dates[i] == null) continue;
+        plannedSlots.add((
+          DateTime.fromMillisecondsSinceEpoch(dates[i], isUtc: true),
+          meals[i]?.toString() ?? 'any',
+        ));
+      }
+    }
+
     return Recipe(
       id: map['id'],
       name: map['name'],
@@ -92,6 +111,7 @@ class Recipe extends Model {
       items: items,
       tags: tags,
       plannedCookingDates: plannedCookingDates,
+      plannedSlots: plannedSlots,
       household: map.containsKey("household")
           ? Household.fromJson(map['household'])
           : null,
@@ -132,6 +152,7 @@ class Recipe extends Model {
         image: image ?? this.image,
         tags: tags ?? this.tags,
         plannedCookingDates: plannedCookingDates ?? this.plannedCookingDates,
+        plannedSlots: plannedCookingDates == null ? plannedSlots : const [],
         visibility: visibility ?? this.visibility,
         householdId: householdId ?? this.householdId,
         household: this.household,
@@ -166,6 +187,7 @@ class Recipe extends Model {
         tags,
         items,
         plannedCookingDates,
+        plannedSlots,
         visibility,
         householdId,
         household,
@@ -196,8 +218,11 @@ class Recipe extends Model {
       "items": items.map((e) => e.toJsonWithId()).toList(),
       "tags": tags.map((e) => e.toJsonWithId()).toList(),
       if (imageHash != null) "photo_hash": imageHash,
-      "planned_cooking_dates":
-          plannedCookingDates.map((e) => e.millisecondsSinceEpoch).toList(),
+      "planned_cooking_dates": plannedSlots.isNotEmpty
+          ? plannedSlots.map((e) => e.$1.millisecondsSinceEpoch).toList()
+          : plannedCookingDates.map((e) => e.millisecondsSinceEpoch).toList(),
+      if (plannedSlots.isNotEmpty)
+        "planned_meals": plannedSlots.map((e) => e.$2).toList(),
       "household_id": householdId,
     });
 
