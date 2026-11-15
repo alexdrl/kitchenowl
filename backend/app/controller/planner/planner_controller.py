@@ -3,9 +3,14 @@ from flask import jsonify, Blueprint
 from flask_jwt_extended import jwt_required
 from app import db
 from app.helpers import validate_args, authorize_household
-from app.models import Recipe, RecipeHistory, Planner
+from app.models import Recipe, RecipeHistory, Planner, PlannerNote
 from app.models.planner import MEAL_ANY
-from .schemas import AddPlannedRecipe, RemovePlannedRecipe
+from .schemas import (
+    AddPlannedRecipe,
+    AddPlannerNote,
+    RemovePlannedRecipe,
+    UpdatePlannerNote,
+)
 from datetime import datetime, timedelta, timezone, date
 
 
@@ -178,3 +183,69 @@ def getRefreshedSuggestedRecipes(household_id):
     Recipe.compute_suggestion_ranking(household_id)
     # return suggested recipes
     return getSuggestedRecipes(household_id=household_id, page=0)
+
+
+def _note_date(timestamp_ms: int) -> datetime:
+    day = datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc).date()
+    return datetime.combine(day, datetime.min.time())
+
+
+def _find_note(household_id: int, id: int) -> PlannerNote:
+    note = PlannerNote.find_by_id(id)
+    if not note or note.household_id != household_id:
+        raise NotFoundRequest()
+    return note
+
+
+@plannerHousehold.route("/notes", methods=["GET"])
+@jwt_required()
+@authorize_household()
+def getPlannerNotes(household_id):
+    return jsonify(
+        [n.obj_to_dict() for n in PlannerNote.all_from_household(household_id)]
+    )
+
+
+@plannerHousehold.route("/notes/recent", methods=["GET"])
+@jwt_required()
+@authorize_household()
+def getRecentPlannerNoteTexts(household_id):
+    return jsonify(PlannerNote.recent_texts(household_id))
+
+
+@plannerHousehold.route("/notes", methods=["POST"])
+@jwt_required()
+@authorize_household()
+@validate_args(AddPlannerNote)
+def addPlannerNote(args, household_id):
+    note = PlannerNote()
+    note.household_id = household_id
+    note.cooking_date = _note_date(args["cooking_date"])
+    note.meal = args.get("meal", MEAL_ANY)
+    note.text = args["text"].strip()
+    note.save()
+    return jsonify(note.obj_to_dict())
+
+
+@plannerHousehold.route("/notes/<int:id>", methods=["POST"])
+@jwt_required()
+@authorize_household()
+@validate_args(UpdatePlannerNote)
+def updatePlannerNote(args, household_id, id):
+    note = _find_note(household_id, id)
+    if "cooking_date" in args:
+        note.cooking_date = _note_date(args["cooking_date"])
+    if "meal" in args:
+        note.meal = args["meal"]
+    if "text" in args:
+        note.text = args["text"].strip()
+    note.save()
+    return jsonify(note.obj_to_dict())
+
+
+@plannerHousehold.route("/notes/<int:id>", methods=["DELETE"])
+@jwt_required()
+@authorize_household()
+def deletePlannerNote(household_id, id):
+    _find_note(household_id, id).delete()
+    return jsonify({"msg": "DONE"})

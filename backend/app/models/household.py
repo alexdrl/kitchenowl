@@ -89,6 +89,14 @@ class Household(Model):
             cascade="all, delete-orphan",
         ),
     )
+    planner_notes: Mapped[List["PlannerNote"]] = cast(
+        Mapped[List["PlannerNote"]],
+        db.relationship(
+            "PlannerNote",
+            back_populates="household",
+            cascade="all, delete-orphan",
+        ),
+    )
     expenses: Mapped[List["Expense"]] = cast(
         Mapped[List["Expense"]],
         db.relationship(

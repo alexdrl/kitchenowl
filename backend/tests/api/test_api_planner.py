@@ -160,3 +160,50 @@ def test_meal_planning_invalid_meal(
         },
     )
     assert response.status_code == 400
+
+
+def test_planner_notes_crud(user_client_with_household, household_id):
+    base = f"/api/household/{household_id}/planner/notes"
+    response = user_client_with_household.post(
+        base,
+        json={
+            "cooking_date": pytest.FIX_DATETIME,
+            "meal": "dinner",
+            "text": "  Cena en Restaurante X ",
+        },
+    )
+    assert response.status_code == 200
+    note = response.get_json()
+    assert note["text"] == "Cena en Restaurante X"
+    assert note["meal"] == "dinner"
+
+    response = user_client_with_household.get(base)
+    assert [n["id"] for n in response.get_json()] == [note["id"]]
+
+    response = user_client_with_household.post(
+        f"{base}/{note['id']}", json={"meal": "lunch", "text": "Sobras"}
+    )
+    assert response.status_code == 200
+    assert response.get_json()["meal"] == "lunch"
+
+    response = user_client_with_household.get(f"{base}/recent")
+    assert response.get_json() == ["Sobras"]
+
+    # Notes never show up as recipe plans
+    response = user_client_with_household.get(f"/api/household/{household_id}/planner")
+    assert response.get_json() == []
+
+    response = user_client_with_household.delete(f"{base}/{note['id']}")
+    assert response.status_code == 200
+    assert user_client_with_household.get(base).get_json() == []
+
+
+def test_planner_notes_validation(user_client_with_household, household_id):
+    base = f"/api/household/{household_id}/planner/notes"
+    for body in (
+        {"cooking_date": pytest.FIX_DATETIME, "text": "   "},
+        {"cooking_date": pytest.FIX_DATETIME, "text": "x", "meal": "brunch"},
+        {"text": "no date"},
+    ):
+        assert user_client_with_household.post(base, json=body).status_code == 400
+    assert user_client_with_household.delete(f"{base}/999").status_code == 404
