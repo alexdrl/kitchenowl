@@ -35,7 +35,7 @@ class HouseholdCubit extends Cubit<HouseholdState> {
     } catch (_) {
       ok = false;
     }
-    await refresh();
+    refresh().ignore();
     return ok;
   }
 }

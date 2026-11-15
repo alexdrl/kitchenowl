@@ -111,7 +111,8 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
     } catch (_) {
       ok = false;
     }
-    await refresh();
+    // Report the result right away; the reload can be slow when offline
+    refresh().ignore();
     return ok;
   }
 
