@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required
 from app import db
 from app.helpers import validate_args, authorize_household
 from app.models import Recipe, RecipeHistory, Planner
+from app.models.planner import MEAL_ANY
 from .schemas import AddPlannedRecipe, RemovePlannedRecipe
 from datetime import datetime, timedelta, timezone, date
 
@@ -86,8 +87,12 @@ def addPlannedRecipe(args, household_id):
     if "day" in args:
         # if outdated "day" was used, transform it into next date with that weekday
         cooking_date = next_weekday(args["day"])
+    meal = args.get("meal", MEAL_ANY)
     planner = Planner.find_by_datetime(
-        household_id=household_id, recipe_id=recipe.id, cooking_date=cooking_date
+        household_id=household_id,
+        recipe_id=recipe.id,
+        cooking_date=cooking_date,
+        meal=meal,
     )
     if not planner:
         if cooking_date > date.min:
@@ -102,6 +107,7 @@ def addPlannedRecipe(args, household_id):
         planner.recipe_id = recipe.id
         planner.household_id = household_id
         planner.cooking_date = datetime.combine(cooking_date, datetime.min.time())
+        planner.meal = meal
         if "yields" in args:
             planner.yields = args["yields"]
         planner.save()
@@ -128,11 +134,16 @@ def removePlannedRecipeById(args, household_id, id):
     if "day" in args:
         # if outdated "day" was used, transform it into next date with that weekday
         cooking_date = next_weekday(args["day"])
-    planner = Planner.find_by_datetime(
-        household_id, recipe_id=recipe.id, cooking_date=cooking_date
+    # Without "meal" (older clients) every plan of that day is removed
+    plans = Planner.find_all_by_datetime(
+        household_id,
+        recipe_id=recipe.id,
+        cooking_date=cooking_date,
+        meal=args.get("meal"),
     )
-    if planner:
+    for planner in plans:
         planner.delete()
+    if plans:
         RecipeHistory.create_dropped(recipe, household_id)
     return jsonify(recipe.obj_to_dict())
 

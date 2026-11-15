@@ -1,5 +1,6 @@
 from marshmallow import fields, Schema, EXCLUDE
-from marshmallow.validate import Range
+from marshmallow.validate import OneOf, Range
+from app.models.planner import MEALS
 
 
 class AddPlannedRecipe(Schema):
@@ -14,6 +15,7 @@ class AddPlannedRecipe(Schema):
         validate=Range(min=0, min_inclusive=True, max=6, max_inclusive=True)
     )
     yields = fields.Integer()
+    meal = fields.String(validate=OneOf(MEALS))
 
 
 class RemovePlannedRecipe(Schema):
@@ -24,3 +26,4 @@ class RemovePlannedRecipe(Schema):
     day = fields.Integer(
         validate=Range(min=0, min_inclusive=True, max=6, max_inclusive=True)
     )
+    meal = fields.String(validate=OneOf(MEALS))

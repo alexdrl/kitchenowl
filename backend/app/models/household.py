@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, List, Self, cast
 from sqlalchemy.orm import Mapped
 
 from app import db
+from sqlalchemy import true as sa_true
 from app.helpers.db_list_type import DbListType
 
 Model = db.Model
@@ -36,6 +37,10 @@ class Household(Model):
     )
     expenses_feature: Mapped[bool] = db.Column(
         db.Boolean(), nullable=False, default=True
+    )
+    # Show the breakfast row/column in the weekly planner
+    planner_breakfast: Mapped[bool] = db.Column(
+        db.Boolean(), nullable=False, default=True, server_default=sa_true()
     )
     description: Mapped[str | None] = db.Column(db.String())
     link: Mapped[str | None] = db.Column(db.String(255))
@@ -153,6 +158,7 @@ class Household(Model):
             "view_ordering": self.view_ordering,
             "planner_feature": self.planner_feature,
             "expenses_feature": self.expenses_feature,
+            "planner_breakfast": self.planner_breakfast,
             "member": [m.user.username for m in getattr(self, "member")],
             "shoppinglists": [s.name for s in self.shoppinglists],
             "recipes": [s.obj_to_export_dict() for s in self.recipes],

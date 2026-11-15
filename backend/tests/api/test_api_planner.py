@@ -85,3 +85,78 @@ def test_suggested_recipes(user_client_with_household, household_id, recipe_with
     assert response.status_code == 200
     refreshed_suggestions = response.get_json()
     assert isinstance(refreshed_suggestions, list)
+
+
+def test_meal_planning_default_meal(
+    user_client_with_household, household_id, planned_recipe
+):
+    """Plans created without a meal are stored as 'any'"""
+    response = user_client_with_household.get(f"/api/household/{household_id}/planner")
+    assert response.status_code == 200
+    assert response.get_json()[0]["meal"] == "any"
+
+
+def test_meal_planning_lunch_and_dinner_same_day(
+    user_client_with_household, household_id, recipe_with_items
+):
+    """The same recipe can be planned for lunch and dinner of one day"""
+    for meal in ("dinner", "lunch"):
+        response = user_client_with_household.post(
+            f"/api/household/{household_id}/planner/recipe",
+            json={
+                "recipe_id": recipe_with_items,
+                "cooking_date": pytest.FIX_DATETIME,
+                "meal": meal,
+            },
+        )
+        assert response.status_code == 200
+
+    response = user_client_with_household.get(f"/api/household/{household_id}/planner")
+    assert response.status_code == 200
+    meals = [plan["meal"] for plan in response.get_json()]
+    assert meals == ["lunch", "dinner"]
+
+    # Removing one meal keeps the other
+    response = user_client_with_household.delete(
+        f"/api/household/{household_id}/planner/recipe/{recipe_with_items}",
+        json={"cooking_date": pytest.FIX_DATETIME, "meal": "lunch"},
+    )
+    assert response.status_code == 200
+    response = user_client_with_household.get(f"/api/household/{household_id}/planner")
+    assert [plan["meal"] for plan in response.get_json()] == ["dinner"]
+
+
+def test_meal_planning_remove_without_meal_removes_whole_day(
+    user_client_with_household, household_id, recipe_with_items
+):
+    """Older clients delete by date only: every meal of that day goes"""
+    for meal in ("lunch", "dinner"):
+        user_client_with_household.post(
+            f"/api/household/{household_id}/planner/recipe",
+            json={
+                "recipe_id": recipe_with_items,
+                "cooking_date": pytest.FIX_DATETIME,
+                "meal": meal,
+            },
+        )
+    response = user_client_with_household.delete(
+        f"/api/household/{household_id}/planner/recipe/{recipe_with_items}",
+        json={"cooking_date": pytest.FIX_DATETIME},
+    )
+    assert response.status_code == 200
+    response = user_client_with_household.get(f"/api/household/{household_id}/planner")
+    assert response.get_json() == []
+
+
+def test_meal_planning_invalid_meal(
+    user_client_with_household, household_id, recipe_with_items
+):
+    response = user_client_with_household.post(
+        f"/api/household/{household_id}/planner/recipe",
+        json={
+            "recipe_id": recipe_with_items,
+            "cooking_date": pytest.FIX_DATETIME,
+            "meal": "brunch",
+        },
+    )
+    assert response.status_code == 400
