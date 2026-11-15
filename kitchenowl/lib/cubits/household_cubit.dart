@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:kitchenowl/models/household.dart';
+import 'package:kitchenowl/services/api/api_service.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
 import 'package:kitchenowl/services/transactions/household.dart';
 
@@ -23,6 +24,12 @@ class HouseholdCubit extends Cubit<HouseholdState> {
     } else {
       emit(state.copyWith(household: household));
     }
+  }
+
+  Future<void> setPlannerBreakfast(bool value) async {
+    await ApiService.getInstance()
+        .setHouseholdPlannerBreakfast(state.household, value);
+    await refresh();
   }
 }
 

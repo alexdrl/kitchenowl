@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/planner.dart';
 import 'package:kitchenowl/models/recipe.dart';
@@ -31,11 +32,14 @@ extension PlannerApi on ApiService {
   Future<bool> removePlannedRecipe(
     Household household,
     Recipe recipe,
-    DateTime? cookingDate,
-  ) async {
+    DateTime? cookingDate, [
+    Meal? meal,
+  ]) async {
     final body = {};
     if (cookingDate != null)
       body['cooking_date'] = cookingDate.millisecondsSinceEpoch;
+    // Without a meal the backend removes the recipe from every meal of the day
+    if (meal != null) body['meal'] = meal.name;
     final res = await delete(
       '${householdPath(household)}$baseRoute/recipe/${recipe.id}',
       body: jsonEncode(body),

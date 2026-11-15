@@ -7,16 +7,21 @@ import 'package:kitchenowl/cubits/household_cubit.dart';
 import 'package:kitchenowl/cubits/planner_cubit.dart';
 import 'package:kitchenowl/cubits/settings_cubit.dart';
 import 'package:kitchenowl/cubits/shoppinglist_cubit.dart';
+import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/enums/update_enum.dart';
 import 'package:kitchenowl/kitchenowl.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/item.dart';
+import 'package:kitchenowl/models/planner.dart';
 import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/pages/item_selection_page.dart';
 import 'package:kitchenowl/pages/recipe_list_display_page.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
 import 'package:kitchenowl/services/transactions/planner.dart';
+import 'package:kitchenowl/services/transactions/recipe.dart';
+import 'package:kitchenowl/widgets/planner_add_sheet.dart';
+import 'package:kitchenowl/widgets/planner_week_view.dart';
 import 'package:kitchenowl/widgets/sliver_recipe_carousel.dart';
 import 'package:tuple/tuple.dart';
 
@@ -76,6 +81,8 @@ class PlannerPage extends StatefulWidget {
 class _PlannerPageState extends State<PlannerPage> {
   final TextEditingController searchController = TextEditingController();
   final ScrollController suggestedRecipesScrollController = ScrollController();
+  bool weekView = true;
+  int weekOffset = 0;
 
   @override
   void initState() {
@@ -92,6 +99,9 @@ class _PlannerPageState extends State<PlannerPage> {
   Widget build(BuildContext context) {
     final cubit = BlocProvider.of<PlannerCubit>(context);
     final household = BlocProvider.of<HouseholdCubit>(context).state.household;
+    final showBreakfast = context.select<HouseholdCubit, bool>(
+      (c) => c.state.household.plannerBreakfast ?? true,
+    );
 
     return SafeArea(
       child: Scrollbar(
@@ -142,6 +152,36 @@ class _PlannerPageState extends State<PlannerPage> {
                                     Theme.of(context).textTheme.headlineSmall,
                               ),
                             ),
+                            IconButton(
+                              tooltip: weekView
+                                  ? AppLocalizations.of(context)!
+                                      .plannerListView
+                                  : AppLocalizations.of(context)!
+                                      .plannerWeekView,
+                              onPressed: () =>
+                                  setState(() => weekView = !weekView),
+                              icon: Icon(
+                                weekView
+                                    ? Icons.view_agenda_outlined
+                                    : Icons.calendar_view_week_rounded,
+                              ),
+                            ),
+                            if (weekView)
+                              PopupMenuButton<bool>(
+                                onSelected: (value) => context
+                                    .read<HouseholdCubit>()
+                                    .setPlannerBreakfast(value),
+                                itemBuilder: (context) => [
+                                  CheckedPopupMenuItem(
+                                    value: !showBreakfast,
+                                    checked: showBreakfast,
+                                    child: Text(
+                                      AppLocalizations.of(context)!
+                                          .plannerShowBreakfast,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             if (state.recipePlans.isNotEmpty &&
                                 household.defaultShoppingList != null)
                               IconButton(
@@ -157,7 +197,9 @@ class _PlannerPageState extends State<PlannerPage> {
                       ),
                     ),
                   ),
-                  if (state.recipePlans.isEmpty)
+                  if (weekView)
+                    ..._buildWeekSlivers(context, cubit, state, showBreakfast),
+                  if (!weekView && state.recipePlans.isEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -175,6 +217,7 @@ class _PlannerPageState extends State<PlannerPage> {
                         ),
                       ),
                     ),
+                  if (!weekView)
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     sliver: SliverLayoutBuilder(
@@ -265,6 +308,7 @@ class _PlannerPageState extends State<PlannerPage> {
                                             cubit.remove(
                                               plan.recipe,
                                               plan.cookingDate,
+                                              plan.meal,
                                             );
                                           },
                                           onPressed: () => _openRecipePage(
@@ -465,19 +509,198 @@ class _PlannerPageState extends State<PlannerPage> {
     PlannerCubit cubit,
     Recipe recipe,
   ) async {
-    final DateTime? cookingDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now().add(const Duration(days: 400)),
+    final slot = await showPlannerAddSheet(
+      context,
+      recipeName: recipe.name,
+      showBreakfast:
+          context.read<HouseholdCubit>().state.household.plannerBreakfast ??
+              true,
     );
-    if (cookingDate != null) {
-      await cubit.add(
-        recipe,
-        cookingDate.millisecondsSinceEpoch > 0
-            ? DateTime.utc(cookingDate.year, cookingDate.month, cookingDate.day)
-            : null,
-      );
+    if (slot != null) {
+      await cubit.add(recipe, slot.cookingDate, slot.meal);
+    }
+  }
+
+  List<Widget> _buildWeekSlivers(
+    BuildContext context,
+    PlannerCubit cubit,
+    LoadedPlannerCubitState state,
+    bool showBreakfast,
+  ) {
+    final loc = AppLocalizations.of(context)!;
+    final weekStart = plannerWeekStart(weekOffset);
+    final weekEnd = DateTime(
+      weekStart.year,
+      weekStart.month,
+      weekStart.day + 6,
+    );
+    final unplanned = state.getPlannedWithoutDay();
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        sliver: SliverToBoxAdapter(
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: loc.plannerPreviousWeek,
+                onPressed: () => setState(() => weekOffset--),
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      '${DateFormat.MMMd().format(weekStart)} – '
+                      '${DateFormat.MMMd().format(weekEnd)}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (weekOffset == 0)
+                      Text(
+                        loc.plannerThisWeek,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                  ],
+                ),
+              ),
+              if (weekOffset != 0)
+                TextButton(
+                  onPressed: () => setState(() => weekOffset = 0),
+                  child: Text(loc.today),
+                ),
+              IconButton(
+                tooltip: loc.plannerNextWeek,
+                onPressed: () => setState(() => weekOffset++),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
+        ),
+      ),
+      if (unplanned.isNotEmpty)
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          sliver: SliverToBoxAdapter(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  loc.plannerNoDay,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+                for (final plan in unplanned)
+                  PlannerDraggableRecipeChip(
+                    recipe: plan.recipe,
+                    subtitle: plan.yields?.toString(),
+                    onPressed: () => _onPlanPressed(context, cubit, plan),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        sliver: SliverToBoxAdapter(
+          child: PlannerWeekView(
+            state: state,
+            weekStart: weekStart,
+            showBreakfast: showBreakfast,
+            onPlanPressed: (plan) => _onPlanPressed(context, cubit, plan),
+            onAddPressed: (cookingDate, meal) async {
+              final recipe = await showPlannerRecipePicker(
+                context,
+                TransactionHandler.getInstance().runTransaction(
+                  TransactionRecipeGetRecipes(household: cubit.household),
+                ),
+              );
+              if (recipe != null) {
+                await cubit.add(recipe, cookingDate, meal);
+              }
+            },
+            onDrop: (data, cookingDate, meal) {
+              if (data is RecipePlan) {
+                cubit.move(data, cookingDate, meal);
+              } else if (data is Recipe) {
+                // Planning an unplanned recipe replaces its "no day" entry
+                cubit.add(data, cookingDate, meal);
+              }
+            },
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        sliver: SliverToBoxAdapter(
+          child: Text(
+            loc.plannerDragHint,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _onPlanPressed(
+    BuildContext context,
+    PlannerCubit cubit,
+    RecipePlan plan,
+  ) async {
+    final loc = AppLocalizations.of(context)!;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(
+                plan.recipe.name,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.restaurant_menu_rounded),
+              title: Text(loc.plannerOpenRecipe),
+              onTap: () => Navigator.of(context).pop('open'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.event_rounded),
+              title: Text(loc.plannerMove),
+              onTap: () => Navigator.of(context).pop('move'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.done_rounded),
+              title: Text(loc.remove),
+              onTap: () => Navigator.of(context).pop('remove'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    switch (action) {
+      case 'open':
+        await _openRecipePage(context, cubit, plan.recipe, plan.yields);
+      case 'move':
+        final slot = await showPlannerAddSheet(
+          context,
+          recipeName: plan.recipe.name,
+          showBreakfast:
+              context.read<HouseholdCubit>().state.household.plannerBreakfast ??
+                  true,
+          initialDate: plan.isWithoutPlannedDay ? null : plan.cookingDate,
+          initialMeal: plan.meal == Meal.any ? null : plan.meal,
+        );
+        if (slot != null) await cubit.move(plan, slot.cookingDate, slot.meal);
+      case 'remove':
+        await cubit.remove(
+          plan.recipe,
+          plan.isWithoutPlannedDay ? null : plan.cookingDate,
+          plan.meal,
+        );
     }
   }
 }

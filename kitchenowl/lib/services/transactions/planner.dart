@@ -1,3 +1,4 @@
+import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/planner.dart';
 import 'package:kitchenowl/models/recipe.dart';
@@ -136,11 +137,13 @@ class TransactionPlannerRemoveRecipe extends Transaction<bool> {
   final Household household;
   final Recipe recipe;
   final DateTime? cookingDate;
+  final Meal? meal;
 
   TransactionPlannerRemoveRecipe({
     required this.household,
     required this.recipe,
     this.cookingDate,
+    this.meal,
     DateTime? timestamp,
   }) : super.internal(
           timestamp ?? DateTime.now(),
@@ -155,7 +158,13 @@ class TransactionPlannerRemoveRecipe extends Transaction<bool> {
         household: Household.fromJson(map['household']),
         recipe: Recipe.fromJson(map['recipe']),
         timestamp: timestamp,
-        cookingDate: map['cooking_date'],
+        cookingDate: map['cooking_date'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(
+                map['cooking_date'],
+                isUtc: true,
+              )
+            : null,
+        meal: map['meal'] != null ? Meal.parse(map['meal']) : null,
       );
 
   @override
@@ -167,6 +176,7 @@ class TransactionPlannerRemoveRecipe extends Transaction<bool> {
       "household": household.toJsonWithId(),
       "recipe": recipe.toJsonWithId(),
       "cooking_date": cookingDate?.millisecondsSinceEpoch,
+      if (meal != null) "meal": meal!.name,
     });
 
   @override
@@ -177,7 +187,7 @@ class TransactionPlannerRemoveRecipe extends Transaction<bool> {
   @override
   Future<bool?> runOnline() {
     return ApiService.getInstance()
-        .removePlannedRecipe(household, recipe, cookingDate);
+        .removePlannedRecipe(household, recipe, cookingDate, meal);
   }
 }
 

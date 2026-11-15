@@ -1,3 +1,4 @@
+import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/models/model.dart';
 import 'package:kitchenowl/models/recipe.dart';
 
@@ -5,11 +6,13 @@ class RecipePlan extends Model {
   final Recipe recipe;
   final DateTime? cookingDate;
   final int? yields;
+  final Meal meal;
 
   RecipePlan({
     required this.recipe,
     this.cookingDate,
     this.yields,
+    this.meal = Meal.any,
   });
 
   factory RecipePlan.fromJson(Map<String, dynamic> map) {
@@ -19,6 +22,7 @@ class RecipePlan extends Model {
       recipe: Recipe.fromJson(map['recipe']),
       cookingDate: DateTime.utc(date.year, date.month, date.day),
       yields: map['yields'],
+      meal: Meal.parse(map['meal']),
     );
   }
 
@@ -28,7 +32,7 @@ class RecipePlan extends Model {
   }
 
   @override
-  List<Object?> get props => [recipe, cookingDate, yields];
+  List<Object?> get props => [recipe, cookingDate, yields, meal];
 
   @override
   Map<String, dynamic> toJson() => {
@@ -36,6 +40,7 @@ class RecipePlan extends Model {
         if (cookingDate != null)
           "cooking_date": cookingDate?.millisecondsSinceEpoch,
         if (yields != null) "yields": yields,
+        if (meal != Meal.any) "meal": meal.name,
       };
 
   @override

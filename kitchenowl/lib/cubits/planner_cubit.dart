@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/item.dart';
 import 'package:kitchenowl/models/planner.dart';
@@ -17,23 +18,51 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
     refresh();
   }
 
-  Future<void> remove(Recipe recipe, [DateTime? cookingDate]) async {
+  Future<void> remove(
+    Recipe recipe, [
+    DateTime? cookingDate,
+    Meal? meal,
+  ]) async {
     await TransactionHandler.getInstance()
         .runTransaction(TransactionPlannerRemoveRecipe(
       household: household,
       recipe: recipe,
       cookingDate: cookingDate,
+      meal: meal,
     ));
     await refresh();
   }
 
-  Future<void> add(Recipe recipe, [DateTime? cookingDate]) async {
+  Future<void> add(
+    Recipe recipe, [
+    DateTime? cookingDate,
+    Meal meal = Meal.any,
+    int? yields,
+  ]) async {
     await TransactionHandler.getInstance()
         .runTransaction(TransactionPlannerAddRecipe(
       household: household,
-      recipePlan: RecipePlan(recipe: recipe, cookingDate: cookingDate),
+      recipePlan: RecipePlan(
+        recipe: recipe,
+        cookingDate: cookingDate,
+        meal: meal,
+        yields: yields,
+      ),
     ));
     await refresh();
+  }
+
+  /// Moves a plan to another day and/or meal, keeping its yields.
+  Future<void> move(RecipePlan plan, DateTime? cookingDate, Meal meal) async {
+    if (plan.cookingDate == cookingDate && plan.meal == meal) return;
+    await TransactionHandler.getInstance()
+        .runTransaction(TransactionPlannerRemoveRecipe(
+      household: household,
+      recipe: plan.recipe,
+      cookingDate: plan.isWithoutPlannedDay ? null : plan.cookingDate,
+      meal: plan.meal,
+    ));
+    await add(plan.recipe, cookingDate, meal, plan.yields);
   }
 
   Future<void> refresh() async {
@@ -137,6 +166,17 @@ class LoadedPlannerCubitState extends PlannerCubitState {
             element.cookingDate?.year == cookingDate.year &&
             element.cookingDate?.month == cookingDate.month &&
             element.cookingDate?.day == cookingDate.day)
+        .toList();
+  }
+
+  /// Plans of one day and meal; `meals` lets the caller fold several meals
+  /// into one row (e.g. breakfast into "other" when breakfast is hidden).
+  List<RecipePlan> getPlannedOfDateAndMeals(
+    DateTime cookingDate,
+    Set<Meal> meals,
+  ) {
+    return getPlannedOfDate(cookingDate)
+        .where((element) => meals.contains(element.meal))
         .toList();
   }
 
