@@ -62,7 +62,8 @@ class Household extends Model {
       currency: map['currency'],
       featurePlanner: map['planner_feature'] ?? false,
       featureExpenses: map['expenses_feature'] ?? false,
-      plannerBreakfast: map['planner_breakfast'] ?? true,
+      // null = not sent (older server): readers default to showing breakfast
+      plannerBreakfast: map['planner_breakfast'],
       description: map['description'],
       link: map['link'],
       verified: map['verified'] ?? false,
