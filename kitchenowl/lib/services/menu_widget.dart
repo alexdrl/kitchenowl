@@ -10,15 +10,18 @@ import 'package:kitchenowl/models/planner_note.dart';
 /// Feeds the Android home screen widget with the planned menu
 /// (`MenuWidgetProvider.kt`).
 ///
-/// The app writes the next [days] days whenever the planner loads; the widget
-/// only reads that JSON and picks today's entry itself, so it moves on at
-/// midnight without the app. Anything else that refreshes the plan (e.g. a
-/// background job) just has to call [MenuWidget.update] too.
+/// Whenever the planner loads, the app writes [days] days starting on the
+/// Monday of the current week: the small widget shows today, the big one the
+/// current Monday-Sunday week. Covering next week too lets both move on at
+/// midnight (and on Monday) without the app. Anything else that refreshes the
+/// plan (e.g. a background job) just has to call [MenuWidget.update] too.
 abstract class MenuWidget {
   /// Key of the JSON in the widget storage, read by the native side.
   static const dataKey = 'menu';
   static const androidProvider = 'com.tombursch.kitchenowl.MenuWidgetProvider';
-  static const days = 7;
+
+  /// This week and the next one.
+  static const days = 14;
 
   static bool get supported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -45,9 +48,9 @@ abstract class MenuWidget {
 
   /// The widget's JSON (version 1):
   /// `{"version", "household": {"id", "name"}, "updated": <ms>,
-  ///   "days": {"2026-11-19": {"lunch": ["Paella", ...], ...}}}`.
-  /// Days are local calendar days; a meal is only present when something is
-  /// planned for it. Recipes come before text notes, each in plan order.
+  ///   "days": {"2026-11-16": {"lunch": ["Paella", ...], ...}, ...}}`.
+  /// Days are local calendar days from this week's Monday on; a meal is only
+  /// present when something is planned for it. Recipes come before text notes, each in plan order.
   @visibleForTesting
   static Map<String, dynamic> buildData({
     required Household household,
@@ -56,8 +59,10 @@ abstract class MenuWidget {
     required DateTime now,
   }) {
     final result = <String, Map<String, List<String>>>{};
+    // DateTime.weekday: Monday = 1
+    final monday = now.day - (now.weekday - DateTime.monday);
     for (var i = 0; i < days; i++) {
-      final day = DateTime(now.year, now.month, now.day + i);
+      final day = DateTime(now.year, now.month, monday + i);
       final meals = <String, List<String>>{};
       for (final meal in Meal.values) {
         final entries = [

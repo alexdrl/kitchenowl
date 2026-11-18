@@ -22,11 +22,11 @@ import java.util.Locale
 
 /**
  * Home screen widget with the planned menu: today's meals when small, the
- * next 7 days as a table when it is made big (tablets).
+ * current week (Monday-Sunday, no breakfast) as a table when it is made big (tablets).
  *
- * The app writes the next days as JSON (`lib/services/menu_widget.dart`); this
- * only picks the entries from today on, so the widget moves on at midnight by
- * itself: an alarm re-renders it right after the day changes.
+ * The app writes this week and the next as JSON (`lib/services/menu_widget.dart`);
+ * this picks today or the current week from it, so the widget moves on at
+ * midnight by itself: an alarm re-renders it right after the day changes.
  */
 class MenuWidgetProvider : HomeWidgetProvider() {
 
@@ -91,7 +91,7 @@ class MenuWidgetProvider : HomeWidgetProvider() {
     else render(context, data)
   }
 
-  /** The next 7 days, one row each, with a column per meal that has anything planned. */
+  /** The current week, Monday to Sunday, today highlighted: lunch, dinner and "other" when used. */
   private fun renderWeek(context: Context, data: JSONObject?): RemoteViews {
     val views = RemoteViews(context.packageName, R.layout.menu_widget_week)
     val householdId = data?.optJSONObject("household")?.optInt("id", -1) ?: -1
@@ -99,16 +99,39 @@ class MenuWidgetProvider : HomeWidgetProvider() {
     val days = data?.optJSONObject("days")
     val pattern = DateFormat.getBestDateTimePattern(Locale.getDefault(), "EEEd")
     val used = mutableSetOf("lunch", "dinner")
-    val day = Calendar.getInstance()
+    val today = Calendar.getInstance()
+    // Monday of the current week, whatever the locale's first day of the week
+    val day =
+        (today.clone() as Calendar).apply {
+          add(Calendar.DAY_OF_YEAR, -((get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7))
+        }
+    val rangePattern = DateFormat.getBestDateTimePattern(Locale.getDefault(), "dMMM")
+    val sunday = (day.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 6) }
+    views.setTextViewText(
+        R.id.menu_widget_date,
+        "${context.getString(R.string.menu_widget_week_title)} · " +
+            "${DateFormat.format(rangePattern, day)} – ${DateFormat.format(rangePattern, sunday)}",
+    )
+    val todayKey = dayKey(today)
+    var past = true
     for (i in 0 until 7) {
+      val key = dayKey(day)
+      val isToday = key == todayKey
+      if (isToday) past = false
       views.setTextViewText(WEEK_DAYS[i], DateFormat.format(pattern, day))
-      val meals = days?.optJSONObject(dayKey(day))
+      views.setInt(
+          WEEK_ROWS[i], "setBackgroundResource", if (isToday) R.drawable.menu_widget_today else 0)
+      // Days already gone are greyed out
+      val color = if (past) R.color.menu_widget_text_secondary else R.color.menu_widget_text
+      val meals = days?.optJSONObject(key)
       for ((meal, cells) in WEEK_CELLS) {
         val entries = meals?.optJSONArray(meal)
         val names = (0 until (entries?.length() ?: 0)).map { entries!!.optString(it) }
         if (names.isNotEmpty()) used += meal
         views.setTextViewText(cells[i], names.joinToString(" · "))
+        setTextColor(context, views, cells[i], color)
       }
+      setTextColor(context, views, WEEK_DAYS[i], color)
       day.add(Calendar.DAY_OF_YEAR, 1)
     }
     for ((meal, cells) in WEEK_CELLS) {
@@ -118,6 +141,15 @@ class MenuWidgetProvider : HomeWidgetProvider() {
     }
     setUpdated(context, views, data)
     return views
+  }
+
+  /** Android 12+ keeps the colour resource, so it follows a light/dark switch. */
+  private fun setTextColor(context: Context, views: RemoteViews, id: Int, color: Int) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      views.setColorStateList(id, "setTextColor", color)
+    } else {
+      views.setTextColor(id, context.getColor(color))
+    }
   }
 
   private fun setUpdated(context: Context, views: RemoteViews, data: JSONObject?) {
@@ -261,7 +293,15 @@ class MenuWidgetProvider : HomeWidgetProvider() {
     private const val WEEK_MIN_WIDTH_DP = 300f
     private const val WEEK_MIN_HEIGHT_DP = 240f
 
-    // Ids of the generated menu_widget_week.xml: day label and one cell per meal, per row.
+    // Ids of the generated menu_widget_week.xml (android/tools/gen_menu_widget_week.py),
+    // Monday to Sunday: the row, its day label and one cell per meal. No breakfast column:
+    // the week table is for the main meals.
+    private val WEEK_ROWS =
+        intArrayOf(
+            R.id.menu_widget_week_row0, R.id.menu_widget_week_row1, R.id.menu_widget_week_row2,
+            R.id.menu_widget_week_row3, R.id.menu_widget_week_row4, R.id.menu_widget_week_row5,
+            R.id.menu_widget_week_row6)
+
     private val WEEK_DAYS =
         intArrayOf(
             R.id.menu_widget_week_day0, R.id.menu_widget_week_day1, R.id.menu_widget_week_day2,
@@ -270,12 +310,6 @@ class MenuWidgetProvider : HomeWidgetProvider() {
 
     private val WEEK_CELLS =
         mapOf(
-            "breakfast" to
-                intArrayOf(
-                    R.id.menu_widget_week_breakfast0, R.id.menu_widget_week_breakfast1,
-                    R.id.menu_widget_week_breakfast2, R.id.menu_widget_week_breakfast3,
-                    R.id.menu_widget_week_breakfast4, R.id.menu_widget_week_breakfast5,
-                    R.id.menu_widget_week_breakfast6),
             "lunch" to
                 intArrayOf(
                     R.id.menu_widget_week_lunch0, R.id.menu_widget_week_lunch1,
@@ -298,7 +332,6 @@ class MenuWidgetProvider : HomeWidgetProvider() {
 
     private val WEEK_HEADS =
         mapOf(
-            "breakfast" to R.id.menu_widget_week_head_breakfast,
             "lunch" to R.id.menu_widget_week_head_lunch,
             "dinner" to R.id.menu_widget_week_head_dinner,
             "any" to R.id.menu_widget_week_head_any,
