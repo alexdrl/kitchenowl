@@ -116,7 +116,9 @@
         android:text="@string/menu_widget_open_app"
         android:textColor="@color/menu_widget_text_secondary"
         android:textSize="14sp" />
-    <View
+    <!-- Spacer pushing "updated" to the bottom. Not a plain View: widgets
+         may only inflate the classes RemoteViews allows. -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
