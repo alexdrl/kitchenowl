@@ -7,7 +7,8 @@ import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/services/menu_widget.dart';
 
 const household = Household(id: 1, name: "Casa");
-// Late evening: "today" must still be the local day, not tomorrow in UTC
+// Thursday, late evening: "today" must still be the local day, not tomorrow
+// in UTC, and the week must start on Monday the 16th
 final now = DateTime(2026, 11, 19, 23, 30);
 
 RecipePlan plan(String name, DateTime day, Meal meal) => RecipePlan(
@@ -24,7 +25,10 @@ void main() {
         plan("Paella", DateTime(2026, 11, 19), Meal.lunch),
         plan("Tortilla", DateTime(2026, 11, 19), Meal.dinner),
         plan("Lentejas", DateTime(2026, 11, 20), Meal.lunch),
-        plan("Ayer", DateTime(2026, 11, 18), Meal.lunch),
+        plan("Lunes", DateTime(2026, 11, 16), Meal.lunch),
+        plan("Semana pasada", DateTime(2026, 11, 15), Meal.lunch),
+        plan("Domingo siguiente", DateTime(2026, 11, 29), Meal.dinner),
+        plan("Demasiado lejos", DateTime(2026, 11, 30), Meal.dinner),
       ],
       notes: [
         PlannerNote(
@@ -37,8 +41,12 @@ void main() {
     );
 
     final days = data["days"] as Map<String, Map<String, List<String>>>;
-    expect(days.keys, hasLength(MenuWidget.days));
-    expect(days.keys.first, "2026-11-19");
+    expect(days.keys, hasLength(14));
+    expect(days.keys.first, "2026-11-16");
+    expect(days.keys.last, "2026-11-29");
+    expect(days["2026-11-16"], {
+      "lunch": ["Lunes"],
+    });
     expect(days["2026-11-19"], {
       "lunch": ["Paella"],
       "dinner": ["Tortilla", "Sobras"],
@@ -47,9 +55,37 @@ void main() {
       "lunch": ["Lentejas"],
     });
     expect(days["2026-11-21"], isEmpty);
-    expect(days.containsKey("2026-11-18"), isFalse);
+    expect(days["2026-11-29"], {
+      "dinner": ["Domingo siguiente"],
+    });
+    expect(days.containsKey("2026-11-15"), isFalse);
+    expect(days.containsKey("2026-11-30"), isFalse);
     expect(data["household"], {"id": 1, "name": "Casa"});
     expect(data["updated"], now.millisecondsSinceEpoch);
+  });
+
+  test("on Monday the week starts that same day", () {
+    final data = MenuWidget.buildData(
+      household: household,
+      plans: const [],
+      notes: const [],
+      now: DateTime(2026, 11, 23, 0, 1),
+    );
+
+    expect((data["days"] as Map).keys.first, "2026-11-23");
+  });
+
+  test("week across a month end", () {
+    final data = MenuWidget.buildData(
+      household: household,
+      plans: const [],
+      notes: const [],
+      now: DateTime(2026, 12, 2),
+    );
+
+    final keys = (data["days"] as Map).keys;
+    expect(keys.first, "2026-11-30");
+    expect(keys.elementAt(2), "2026-12-02");
   });
 
   test("leaves out plans without a day and empty notes", () {
