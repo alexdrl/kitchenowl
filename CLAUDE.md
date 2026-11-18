@@ -10,6 +10,35 @@ KitchenOwl is a self-hosted grocery list / recipe / meal-plan / expense manager.
 
 `flutter/` is a git submodule of the Flutter SDK (stable). The root `Dockerfile` builds the all-in-one image: the Flutter web build is served by the backend's uWSGI.
 
+## This fork (alexdrl/kitchenowl)
+
+This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/kitchenowl). Remotes: `origin` = upstream, `fork` = alexdrl/kitchenowl. The private half of the deployment (registry, cluster, ArgoCD) is in `CLAUDE.local.md`, which is not committed. Read it before building or deploying anything.
+
+**Branches.** Each change that should go upstream gets its own branch, created from `origin/main` and holding that change only. A new fix never goes into an existing feature branch.
+
+| Branch | Upstream PR | What |
+| --- | --- | --- |
+| `feat/planner-meal` | not yet | meals (breakfast/lunch/dinner) in the planner, weekly view, text meals |
+| `fix/web-base-uri` | TomBursch/kitchenowl#1236 | web API base from `<base href>`, not the page URL (deep links broke) |
+| `fix/zero-yields-scale` | TomBursch/kitchenowl#1237 | recipes with 0 servings no longer throw when scaled |
+| `feat/mcp-item-categories` | TomBursch/kitchenowl#1233 | MCP tools to edit items and manage categories |
+| `fix/delete-category-by-name` | TomBursch/kitchenowl#1234 | delete a category by name |
+| `fork/claude-md` | never | this file and `fork/` (fork-only tooling) |
+
+- `deploy` = `origin/main` plus a `--no-ff` merge of every branch above. Every image and APK is built from `deploy`, and nothing is committed on it directly.
+- Once upstream merges a PR, or `main` moves, rebuild `deploy`: `git checkout -B deploy origin/main`, then merge the live branches again (`rerere` is on). This needs a force push of `deploy`, which the user runs.
+- Keep `CLAUDE.md` and `fork/` out of upstream PR branches. They live only on `fork/claude-md`.
+- When a branch, PR or tag changes, update this table and the "Running a fork" section of the deployment README (see `CLAUDE.local.md`).
+
+**Images.** The web and backend images are built from a `deploy` commit, using the GitHub URL as the build context, never this Windows checkout (`core.autocrlf=true` turns `entrypoint.sh` into CRLF):
+`docker build --platform linux/amd64 -t <registry>/kitchenowl-web:meal-N "https://github.com/alexdrl/kitchenowl.git#<sha>:kitchenowl"` (`:backend` for the backend image). Always push a new tag: the pull policy is `IfNotPresent`. Web and backend tags are numbered independently.
+
+**Android APK.** The build is `fork/build-apk.sh`, which runs in Docker; the private half has the exact command. It builds arm64 only and caps the Gradle heap at 3 GB: `gradle.properties` asks for 8 GB, more than the Docker Desktop VM has, and the first build was OOM-killed. Rules:
+- The `applicationId` stays `com.tombursch.kitchenowl`. The fork replaces the official app, which has to be uninstalled first because its signature is different.
+- APKs are signed with the fork's own release key, which is never in the repo (`key.properties` and `*.jks` are gitignored). Android refuses an update signed with any other key.
+- Build number = upstream build × 100 + fork build, e.g. `0.8.1-fork.1` / `12601` on upstream `0.8.1+126`. The next upstream release then still counts as newer. `MIN_FRONTEND_VERSION` only compares against this number, so a large value is harmless.
+- `kitchenowl/fonts/Items.ttf` is built from the Icons8 icons, and their licence forbids redistribution. Do not publish the APK anywhere public.
+
 ## Commands
 
 ### Backend (run from `backend/`)
