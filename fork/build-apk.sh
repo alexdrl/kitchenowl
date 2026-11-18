@@ -42,7 +42,9 @@ cp /keys/key.properties /src/kitchenowl/android/key.properties
 sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx3G -XX:MaxMetaspaceSize=1G -XX:ReservedCodeCacheSize=512m/' \
   /src/kitchenowl/android/gradle.properties
 grep -q '^org.gradle.caching=' /src/kitchenowl/android/gradle.properties ||
-  echo 'org.gradle.caching=true' >> /src/kitchenowl/android/gradle.properties
+  printf '
+org.gradle.caching=true
+' >> /src/kitchenowl/android/gradle.properties  # file has no final newline
 cd /src/kitchenowl
 flutter pub get >/dev/null
 # arm64 only: every phone the user has, and a third of the build time and memory.
