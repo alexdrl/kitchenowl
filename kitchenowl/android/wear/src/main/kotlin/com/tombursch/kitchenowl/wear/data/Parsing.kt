@@ -20,6 +20,15 @@ fun parseSnapshot(bytes: ByteArray): PhoneSnapshot? = try {
     null
 }
 
+/** Null for anything that is not a menu we understand. */
+fun parseMenu(bytes: ByteArray): PhoneMenu? = try {
+    json.decodeFromString<PhoneMenu>(bytes.toString(Charsets.UTF_8))
+} catch (e: SerializationException) {
+    null
+} catch (e: IllegalArgumentException) {
+    null
+}
+
 fun encodeAction(action: WatchAction): ByteArray =
     json.encodeToString(WatchAction.serializer(), action).toByteArray(Charsets.UTF_8)
 

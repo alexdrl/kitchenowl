@@ -3,9 +3,11 @@ package com.tombursch.kitchenowl.wear
 import android.app.Application
 import android.content.Context
 import androidx.wear.tiles.TileService
+import com.tombursch.kitchenowl.wear.data.MenuRepository
 import com.tombursch.kitchenowl.wear.data.PrefsStore
 import com.tombursch.kitchenowl.wear.data.WatchRepository
 import com.tombursch.kitchenowl.wear.sync.DataLayerActionSink
+import com.tombursch.kitchenowl.wear.tile.MenuTileService
 import com.tombursch.kitchenowl.wear.tile.ShoppingTileService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,11 +30,16 @@ object ServiceLocator {
     lateinit var repository: WatchRepository
         private set
 
+    lateinit var menuRepository: MenuRepository
+        private set
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @OptIn(FlowPreview::class)
     fun init(application: Application) {
-        repository = WatchRepository(DataLayerActionSink(application), PrefsStore(application))
+        val store = PrefsStore(application)
+        repository = WatchRepository(DataLayerActionSink(application), store)
+        menuRepository = MenuRepository(store)
 
         // Keep the tile current after every change (a tick, a new snapshot).
         appScope.launch {
@@ -41,6 +48,18 @@ object ServiceLocator {
                 .distinctUntilChanged()
                 .debounce(500)
                 .collect { requestTileUpdate(application) }
+        }
+        appScope.launch {
+            // A StateFlow only emits when the value changes.
+            menuRepository.state.collect { requestMenuTileUpdate(application) }
+        }
+    }
+
+    fun requestMenuTileUpdate(context: Context) {
+        try {
+            TileService.getUpdater(context).requestUpdate(MenuTileService::class.java)
+        } catch (e: Exception) {
+            // The tile is optional.
         }
     }
 

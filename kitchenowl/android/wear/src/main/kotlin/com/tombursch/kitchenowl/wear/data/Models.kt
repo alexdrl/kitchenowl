@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 
 const val SNAPSHOT_PATH = "/kitchenowl/shoppinglist"
 const val ACTIONS_PATH = "/kitchenowl/actions"
+const val MENU_PATH = "/kitchenowl/menu"
 
 @Serializable
 data class WatchItem(
@@ -70,4 +71,18 @@ data class PendingAction(
     val sent: Boolean = false,
     /** The phone deleted the action item: it applied it. Dropped at the next snapshot. */
     val confirmed: Boolean = false,
+)
+
+/**
+ * The planned menu the phone published (`/kitchenowl/menu`, lib/models/wear_menu.dart): calendar days
+ * `yyyy-MM-dd` from this week's Monday on, each with the dishes per meal (`breakfast`, `lunch`,
+ * `dinner`, `any`). A meal is only there when something is planned for it; a day the phone had
+ * nothing for is an empty map, a day it did not cover is missing.
+ */
+@Serializable
+data class PhoneMenu(
+    val version: Int = 1,
+    @SerialName("household_id") val householdId: Long = 0,
+    @SerialName("updated_ms") val updatedMs: Long = 0,
+    val days: Map<String, Map<String, List<String>>> = emptyMap(),
 )

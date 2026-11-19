@@ -10,6 +10,8 @@ import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import com.tombursch.kitchenowl.wear.ServiceLocator
 import com.tombursch.kitchenowl.wear.data.ACTIONS_PATH
+import com.tombursch.kitchenowl.wear.data.MENU_PATH
+import com.tombursch.kitchenowl.wear.data.parseMenu
 import com.tombursch.kitchenowl.wear.data.ActionSink
 import com.tombursch.kitchenowl.wear.data.SNAPSHOT_PATH
 import com.tombursch.kitchenowl.wear.data.WatchAction
@@ -43,6 +45,8 @@ class PhoneListenerService : WearableListenerService() {
             when {
                 event.type == DataEvent.TYPE_CHANGED && path == SNAPSHOT_PATH ->
                     event.dataItem.data?.let(::parseSnapshot)?.let(ServiceLocator.repository::onSnapshot)
+                event.type == DataEvent.TYPE_CHANGED && path == MENU_PATH ->
+                    event.dataItem.data?.let(::parseMenu)?.let(ServiceLocator.menuRepository::onMenu)
                 // The phone deleted an action item: it has applied it.
                 event.type == DataEvent.TYPE_DELETED -> actionUuid(path)?.let(ServiceLocator.repository::onActionDeleted)
             }
@@ -64,6 +68,8 @@ class PhoneListenerService : WearableListenerService() {
                             val path = item.uri.path
                             if (path == SNAPSHOT_PATH) {
                                 item.data?.let(::parseSnapshot)?.let(ServiceLocator.repository::onSnapshot)
+                            } else if (path == MENU_PATH) {
+                                item.data?.let(::parseMenu)?.let(ServiceLocator.menuRepository::onMenu)
                             } else {
                                 actionUuid(path)?.let(waiting::add)
                             }

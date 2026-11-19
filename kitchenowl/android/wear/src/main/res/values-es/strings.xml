@@ -34,4 +34,18 @@
         <item quantity="one">Queda %d artículo</item>
         <item quantity="other">Quedan %d artículos</item>
     </plurals>
+
+    <string name="menu_tile_label">Menú</string>
+    <string name="menu_title">Menú</string>
+    <string name="meal_breakfast">Desayuno</string>
+    <string name="meal_lunch">Comida</string>
+    <string name="meal_dinner">Cena</string>
+    <string name="meal_other">Otro</string>
+    <string name="day_today">Hoy</string>
+    <string name="day_tomorrow">Mañana</string>
+    <string name="menu_nothing">Sin planificar</string>
+    <string name="menu_empty_title">Sin menú todavía</string>
+    <string name="menu_empty_body">Planifica las comidas en KitchenOwl en el móvil.</string>
+    <string name="menu_no_today">Sin menú para hoy</string>
+    <string name="now_suffix">ahora</string>
 </resources>

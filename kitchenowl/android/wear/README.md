@@ -24,6 +24,10 @@ the Wearable Data Layer, so the watch needs no Wi-Fi or LTE and there is nothing
   yet"; a put-back item carries "not confirmed" until the phone's next list confirms it. When the
   phone's list is older than 1 h the screen says how old it is.
 - **Tile**: "N items left" plus the first three. Tap opens the app. It reads the same list.
+- **Menu tile**: lunch and dinner of today and of tomorrow, from the planner (today's lunch greys out after
+  16:00). Tap opens the **menu screen** in the app: the week (today, tomorrow, ... with a dot per planned
+  meal), and one day with its meals, the one on now marked. It is also reachable from the "Menu" bar at
+  the bottom of the categories screen. Read only.
 - Dark theme only (Wear OS expects that). English and Spanish.
 
 ## How it works
@@ -52,6 +56,12 @@ the Wearable Data Layer, so the watch needs no Wi-Fi or LTE and there is nothing
 Items are sorted like the app's category view (category order, then name, uncategorized last).
 `icon` is the code point in the `Items` font, left out when the item has no icon. The
 Data Layer allows 100 KB per item, so a huge list is cut to 90 KB (the last categories are dropped).
+
+**Menu** (phone → watch), `/kitchenowl/menu`, built by `lib/models/wear_menu.dart` from the planner:
+`{"version":1,"household_id":1,"updated_ms":...,"days":{"2026-11-19":{"lunch":["Lentejas","Ensalada"],"dinner":["Tortilla"]}}}`.
+14 days from this week's Monday, so the watch moves on at midnight without the phone; meals are `breakfast`,
+`lunch`, `dinner`, `any` and only present when something is planned; recipes come before text notes.
+Published when the planner loads, every ~30 min by the phone's worker, and when the watch asks for a refresh.
 
 **Action** (watch → phone), `/kitchenowl/actions/<uuid>`:
 `{type: remove|add|refresh|select_list, item_id?, item_name?, description?, list_id, created_ms}`.
@@ -130,7 +140,7 @@ transport itself, the `WearableListenerService`, and the headless engine run by 
 wear/src/main/kotlin/com/tombursch/kitchenowl/wear/
   data/    Models, Parsing, Grouping, WatchRepository (cache, queue, optimistic merge), PrefsStore
   sync/    DataLayer.kt: DataLayerActionSink (writes actions), PhoneListenerService (snapshots, confirmations)
-  ui/      MainActivity, ShoppingViewModel, Screens (Compose for Wear OS, Material 3)
-  tile/    ShoppingTileService
+  ui/      MainActivity, ShoppingViewModel, Screens, MenuScreens (Compose for Wear OS, Material 3)
+  tile/    ShoppingTileService, MenuTileService
   WearApp  ServiceLocator
 ```

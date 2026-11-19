@@ -25,7 +25,8 @@ import java.util.concurrent.TimeUnit
  * Native half of lib/services/wear_bridge.dart: the Wearable Data Layer for the KitchenOwl
  * Wear OS app (kitchenowl/android/wear). The watch has no network access and no token.
  *
- *  - phone to watch: `/kitchenowl/shoppinglist`, the JSON built by Dart (WearSnapshot)
+ *  - phone to watch: `/kitchenowl/shoppinglist`, the JSON built by Dart (WearSnapshot), and
+ *    `/kitchenowl/menu`, the planned menu (WearMenu)
  *  - watch to phone: `/kitchenowl/actions/<uuid>`, one item per action, deleted once applied
  *
  * The same channel handler is installed in the UI engine (MainActivity) and in the headless
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit
 object WearBridge {
     const val CHANNEL = "com.tombursch.kitchenowl/wear"
     const val SNAPSHOT_PATH = "/kitchenowl/shoppinglist"
+    const val MENU_PATH = "/kitchenowl/menu"
     const val ACTIONS_PATH = "/kitchenowl/actions"
 
     private const val WORK_ACTIONS = "wear-actions"
@@ -57,7 +59,8 @@ object WearBridge {
     private fun handle(context: Context, call: MethodCall, result: MethodChannel.Result) {
         try {
             when (call.method) {
-                "publishSnapshot" -> publish(context, call.arguments as String, result)
+                "publishSnapshot" -> publish(context, SNAPSHOT_PATH, call.arguments as String, result)
+                "publishMenu" -> publish(context, MENU_PATH, call.arguments as String, result)
                 "pendingActions" -> pendingActions(context, result)
                 "ackActions" -> ack(context, call.arguments as List<*>, result)
                 "headlessDone" -> {
@@ -72,8 +75,8 @@ object WearBridge {
         }
     }
 
-    private fun publish(context: Context, json: String, result: MethodChannel.Result) {
-        val request = PutDataRequest.create(SNAPSHOT_PATH)
+    private fun publish(context: Context, path: String, json: String, result: MethodChannel.Result) {
+        val request = PutDataRequest.create(path)
             .setData(json.toByteArray(Charsets.UTF_8))
             .setUrgent()
         Wearable.getDataClient(context).putDataItem(request)
