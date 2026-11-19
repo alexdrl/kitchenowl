@@ -44,6 +44,11 @@ dependencies = [
     "uWSGI>=2.0.28",
     "uwsgi-tools>=1.1.1",
     "icalendar>=7.3.0",
+    "opentelemetry-sdk>=1.45.2",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.2",
+    "opentelemetry-instrumentation-flask>=0.66b2",
+    "opentelemetry-instrumentation-sqlalchemy>=0.66b2",
+    "opentelemetry-instrumentation-requests>=0.66b2",
 ]
 
 [dependency-groups]
