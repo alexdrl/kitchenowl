@@ -7,6 +7,15 @@
 
     <!--Queries-->
     <queries>
+        <!-- Calendar subscriptions (ICSx⁵) for the planner calendar -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="webcal" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="webcals" />
+        </intent>
         <!-- If your app opens https URLs -->
         <intent>
             <action android:name="android.intent.action.VIEW" />

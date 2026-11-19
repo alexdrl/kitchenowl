@@ -147,4 +147,27 @@ extension PlannerApi on ApiService {
 
     return body.map((e) => Recipe.fromJson(e)).toList();
   }
+
+  /// Path of the household's calendar feed (relative to [serverUrl]). Null
+  /// when the request failed; empty when there is no link yet, unless
+  /// [create] makes one.
+  Future<String?> getPlannerCalendarPath(
+    Household household, {
+    bool create = false,
+  }) async {
+    final res = await get('${householdPath(household)}$baseRoute/calendar');
+    if (res.statusCode != 200) return null;
+    final String? path = jsonDecode(res.body)['path'];
+    if (path == null && create) return rotatePlannerCalendar(household);
+
+    return path ?? '';
+  }
+
+  /// Makes a new calendar link; the previous one stops working
+  Future<String?> rotatePlannerCalendar(Household household) async {
+    final res = await post('${householdPath(household)}$baseRoute/calendar', '{}');
+    if (res.statusCode != 200) return null;
+
+    return jsonDecode(res.body)['path'];
+  }
 }
