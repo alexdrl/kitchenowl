@@ -49,6 +49,11 @@ class ApiService {
 
   String householdPath(Household household) => "/household/${household.id}";
 
+  /// The server address, without the API path
+  String get serverUrl => baseUrl.endsWith(_API_PATH)
+      ? baseUrl.substring(0, baseUrl.length - _API_PATH.length)
+      : baseUrl;
+
   static ApiService? _instance;
   late final http.Client _client;
   late final Socket socket;
