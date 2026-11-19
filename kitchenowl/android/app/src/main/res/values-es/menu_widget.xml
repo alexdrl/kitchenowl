@@ -9,5 +9,7 @@
     <string name="menu_widget_nothing_planned">Nada planificado para hoy</string>
     <string name="menu_widget_open_app">Abre KitchenOwl para cargar el menú</string>
     <string name="menu_widget_week_title">Esta semana</string>
+    <string name="menu_widget_today_label">HOY</string>
+    <string name="menu_widget_next_days">Próximos días</string>
     <string name="menu_widget_updated">Actualizado %1$s</string>
 </resources>

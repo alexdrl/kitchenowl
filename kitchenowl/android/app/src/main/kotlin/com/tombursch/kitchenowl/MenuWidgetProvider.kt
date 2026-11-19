@@ -21,8 +21,9 @@ import java.util.Calendar
 import java.util.Locale
 
 /**
- * Home screen widget with the planned menu: today's meals when small, the
- * current week (Monday-Sunday, no breakfast) as a table when it is made big (tablets).
+ * Home screen widget with the planned menu, laid out by its shape: today's meals
+ * when small; today plus the next days when wide (beside it) or tall (below it);
+ * the current week (Monday-Sunday, no breakfast) as a table when big both ways.
  *
  * The app writes this week and the next as JSON (`lib/services/menu_widget.dart`);
  * this picks today or the current week from it, so the widget moves on at
@@ -69,26 +70,71 @@ class MenuWidgetProvider : HomeWidgetProvider() {
         }
       }
 
+  /**
+   * One layout per shape: today (small), today + next 3 days side by side (wide and short),
+   * today + next 4 days below (narrow and tall), the current week table (big both ways).
+   */
+  private fun layoutsBySize(context: Context, data: JSONObject?): List<Pair<SizeF, () -> RemoteViews>> =
+      listOf(
+          SizeF(110f, 70f) to { render(context, data, R.layout.menu_widget, "EEEEdMMMM") },
+          SizeF(WIDE_MIN_WIDTH_DP, WIDE_MIN_HEIGHT_DP) to { renderWithNext(context, data, R.layout.menu_widget_wide, 3, "EEEd") },
+          SizeF(TALL_MIN_WIDTH_DP, TALL_MIN_HEIGHT_DP) to { renderWithNext(context, data, R.layout.menu_widget_tall, 4, "EEEEd") },
+          SizeF(WEEK_MIN_WIDTH_DP, WEEK_MIN_HEIGHT_DP) to { renderWeek(context, data) },
+      )
+
   private fun viewsFor(
       context: Context,
       manager: AppWidgetManager,
       id: Int,
       data: JSONObject?,
   ): RemoteViews {
+    val layouts = layoutsBySize(context, data)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      // The launcher picks the biggest layout that fits, also while resizing.
-      return RemoteViews(
-          mapOf(
-              SizeF(110f, 70f) to render(context, data),
-              SizeF(WEEK_MIN_WIDTH_DP, WEEK_MIN_HEIGHT_DP) to renderWeek(context, data),
-          ))
+      // The system picks, among the layouts that fit, the one closest to the widget's
+      // size, also while resizing.
+      return RemoteViews(layouts.associate { (size, build) -> size to build() })
     }
     val options = manager.getAppWidgetOptions(id)
-    // Portrait size: min width and max height.
-    val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-    val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-    return if (width >= WEEK_MIN_WIDTH_DP && height >= WEEK_MIN_HEIGHT_DP) renderWeek(context, data)
-    else render(context, data)
+    // Portrait size: min width and max height. Same rule as Android 12+: of the
+    // layouts that fit, the closest (squared distance) to that size.
+    val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).toFloat()
+    val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).toFloat()
+    val best =
+        layouts
+            .filter { (size, _) -> size.width <= width && size.height <= height }
+            .minByOrNull { (size, _) ->
+              (width - size.width) * (width - size.width) + (height - size.height) * (height - size.height)
+            } ?: layouts.first()
+    return best.second()
+  }
+
+  /** Today's card plus the next [count] days (lunch and dinner), for the wide and tall shapes. */
+  private fun renderWithNext(
+      context: Context,
+      data: JSONObject?,
+      layout: Int,
+      count: Int,
+      dayPattern: String,
+  ): RemoteViews {
+    val views = render(context, data, layout, "EEEEd")
+    val days = data?.optJSONObject("days")
+    if (days == null) {
+      views.setViewVisibility(R.id.menu_widget_next, View.GONE)
+      return views
+    }
+    val pattern = DateFormat.getBestDateTimePattern(Locale.getDefault(), dayPattern)
+    val day = Calendar.getInstance()
+    for (i in 0 until count) {
+      day.add(Calendar.DAY_OF_YEAR, 1)
+      val meals = days.optJSONObject(dayKey(day))
+      views.setTextViewText(NEXT_DAYS[i], DateFormat.format(pattern, day))
+      for ((meal, ids) in listOf("lunch" to NEXT_LUNCH, "dinner" to NEXT_DINNER)) {
+        val entries = meals?.optJSONArray(meal)
+        val names = (0 until (entries?.length() ?: 0)).map { entries!!.optString(it) }
+        views.setTextViewText(ids[i], if (names.isEmpty()) "—" else names.joinToString(" · "))
+      }
+    }
+    return views
   }
 
   /** The current week, Monday to Sunday, today highlighted: lunch, dinner and "other" when used. */
@@ -169,12 +215,13 @@ class MenuWidgetProvider : HomeWidgetProvider() {
     }
   }
 
-  private fun render(context: Context, data: JSONObject?): RemoteViews {
-    val views = RemoteViews(context.packageName, R.layout.menu_widget)
+  /** Today's meals into [layout]: menu_widget.xml, or the today card of the wide and tall ones. */
+  private fun render(context: Context, data: JSONObject?, layout: Int, datePattern: String): RemoteViews {
+    val views = RemoteViews(context.packageName, layout)
     val now = Calendar.getInstance()
     views.setTextViewText(
         R.id.menu_widget_date,
-        DateFormat.format(DateFormat.getBestDateTimePattern(Locale.getDefault(), "EEEEdMMMM"), now),
+        DateFormat.format(DateFormat.getBestDateTimePattern(Locale.getDefault(), datePattern), now),
     )
 
     val householdId = data?.optJSONObject("household")?.optInt("id", -1) ?: -1
@@ -289,9 +336,32 @@ class MenuWidgetProvider : HomeWidgetProvider() {
             "any" to R.string.menu_widget_other,
         )
 
-    /** From this size on (dp, about 4x3 cells) the week table replaces today's menu. */
+    // Minimum sizes (dp) of each shape; of those that fit, the one closest to the
+    // widget's size wins (viewsFor): 5x2 on the tablet is wide, 4x4 on the phone the week.
+    /** Wide and short, e.g. 5x2 on the tablet: today + next 3 days side by side. */
+    private const val WIDE_MIN_WIDTH_DP = 300f
+    private const val WIDE_MIN_HEIGHT_DP = 110f
+    /** Narrow and tall, e.g. 2x4: today + next 4 days below. */
+    private const val TALL_MIN_WIDTH_DP = 150f
+    private const val TALL_MIN_HEIGHT_DP = 300f
+    /** Big both ways, e.g. 4x4 on the phone: the current week table. */
     private const val WEEK_MIN_WIDTH_DP = 300f
-    private const val WEEK_MIN_HEIGHT_DP = 240f
+    private const val WEEK_MIN_HEIGHT_DP = 340f
+
+    // Ids of the generated menu_widget_wide.xml / menu_widget_tall.xml (android/tools/
+    // gen_menu_widget_cards.py): the wide one has rows 0-2, the tall one 0-3.
+    private val NEXT_DAYS =
+        intArrayOf(
+            R.id.menu_widget_next0_day, R.id.menu_widget_next1_day,
+            R.id.menu_widget_next2_day, R.id.menu_widget_next3_day)
+    private val NEXT_LUNCH =
+        intArrayOf(
+            R.id.menu_widget_next0_lunch, R.id.menu_widget_next1_lunch,
+            R.id.menu_widget_next2_lunch, R.id.menu_widget_next3_lunch)
+    private val NEXT_DINNER =
+        intArrayOf(
+            R.id.menu_widget_next0_dinner, R.id.menu_widget_next1_dinner,
+            R.id.menu_widget_next2_dinner, R.id.menu_widget_next3_dinner)
 
     // Ids of the generated menu_widget_week.xml (android/tools/gen_menu_widget_week.py),
     // Monday to Sunday: the row, its day label and one cell per meal. No breakfast column:
