@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/models/household.dart';
@@ -109,5 +111,36 @@ void main() {
 
   test("dayKey pads month and day", () {
     expect(MenuWidget.dayKey(DateTime(2027, 1, 5)), "2027-01-05");
+  });
+
+  test("householdOf reads back what buildData wrote", () {
+    final json = jsonEncode(MenuWidget.buildData(
+      household: household,
+      plans: const [],
+      notes: const [],
+      now: now,
+    ));
+    final read = MenuWidget.householdOf(json);
+    expect(read?.id, household.id);
+    expect(read?.name, household.name);
+  });
+
+  test("householdOf is null without usable data", () {
+    expect(MenuWidget.householdOf(null), isNull);
+    expect(MenuWidget.householdOf("not json"), isNull);
+    expect(MenuWidget.householdOf('{"household": {"id": "1"}}'), isNull);
+  });
+
+  test("firstDay is the week's Monday at UTC midnight", () {
+    expect(MenuWidget.firstDay(DateTime(2026, 11, 19, 23, 30)),
+        DateTime.utc(2026, 11, 16));
+    expect(
+      MenuWidget.firstDay(DateTime(2026, 11, 16)),
+      DateTime.utc(2026, 11, 16),
+    );
+    expect(
+      MenuWidget.firstDay(DateTime(2026, 3, 1)),
+      DateTime.utc(2026, 2, 23),
+    );
   });
 }

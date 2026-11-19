@@ -85,6 +85,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         BackgroundFetchConfig(
           minimumFetchInterval: 30,
           stopOnTerminate: false,
+          // Keeps the menu widget current after a reboot too
+          startOnBoot: true,
           enableHeadless: true,
           requiresBatteryNotLow: false,
           requiresCharging: false,
