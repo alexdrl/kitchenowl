@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tile_label">Lista de la compra</string>
+
+    <string name="no_snapshot_title">Abre KitchenOwl en el móvil</string>
+    <string name="no_snapshot_body">La lista aparece aquí en cuanto el móvil la envíe.</string>
+    <string name="tile_no_snapshot">Abre KitchenOwl en el móvil</string>
+
+    <string name="list_empty">Nada que comprar</string>
+    <string name="uncategorized">Sin categoría</string>
+    <string name="refresh">Actualizar</string>
+    <string name="refreshing">Preguntando al móvil…</string>
+    <string name="change_list">Cambiar de lista</string>
+    <string name="pick_list">Listas de la compra</string>
+    <string name="items_count">%d artículos</string>
+    <string name="undo_item">Deshacer: %s</string>
+    <string name="switching_list">Cambiando de lista…</string>
+
+    <string name="updated_hours">Actualizado hace %d h</string>
+    <string name="updated_days">Actualizado hace %d d</string>
+    <string name="not_confirmed">%d sin confirmar</string>
+    <string name="item_not_confirmed">sin confirmar</string>
+
+    <string name="tile_all_done">Todo comprado</string>
+    <plurals name="tile_items_left">
+        <item quantity="one">Queda %d artículo</item>
+        <item quantity="other">Quedan %d artículos</item>
+    </plurals>
+</resources>
