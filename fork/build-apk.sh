@@ -45,8 +45,17 @@ grep -q '^org.gradle.caching=' /src/kitchenowl/android/gradle.properties ||
   printf '\norg.gradle.caching=true\n' >> /src/kitchenowl/android/gradle.properties  # file has no final newline
 cd /src/kitchenowl
 flutter pub get >/dev/null
+# Logs (lib/services/app_log_upload.dart): the collector's URL and token come from a file
+# next to the signing key, never from git. Without it the app sends nothing.
+LOG_DEFINES=""
+if [ -f /keys/app-logs.env ]; then
+  LOG_DEFINES="--dart-define-from-file=/keys/app-logs.env"
+  echo "== log upload: configured from /keys/app-logs.env"
+else
+  echo "== log upload: off (no /keys/app-logs.env)"
+fi
 # arm64 only: every phone the user has, and a third of the build time and memory.
-flutter build apk --release --target-platform android-arm64 --build-name="$NAME" --build-number="$NUMBER"
+flutter build apk --release --target-platform android-arm64 --build-name="$NAME" --build-number="$NUMBER" $LOG_DEFINES
 cp build/app/outputs/flutter-apk/app-release.apk "/out/kitchenowl-$NAME.apk"
 echo "== built /out/kitchenowl-$NAME.apk"
 
