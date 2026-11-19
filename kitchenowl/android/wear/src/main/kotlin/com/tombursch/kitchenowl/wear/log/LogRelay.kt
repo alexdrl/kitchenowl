@@ -6,6 +6,7 @@ import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
 import com.tombursch.kitchenowl.wear.BuildConfig
 import com.tombursch.kitchenowl.wear.ServiceLocator
+import java.io.File
 import java.util.UUID
 
 /**
@@ -47,7 +48,7 @@ object LogRelay {
                     createdMs = System.currentTimeMillis(),
                     requestId = requestId,
                     uploadNow = uploadNow,
-                    resource = resource(),
+                    resource = resource(context),
                     lines = batch.text,
                 )
                 val request = PutDataRequest.create("$LOGS_PATH/${UUID.randomUUID()}")
@@ -66,15 +67,34 @@ object LogRelay {
         return sent > 0
     }
 
-    private fun resource(): Map<String, String> = mapOf(
+    private fun resource(context: Context): Map<String, String> = mapOf(
         "service.name" to "kitchenowl-wear",
+        "service.instance.id" to instanceId(context),
         "service.version" to BuildConfig.VERSION_NAME,
         "app.build" to BuildConfig.VERSION_CODE.toString(),
+        "device.model.identifier" to Build.MODEL,
         "device.model.name" to Build.MODEL,
         "device.manufacturer" to Build.MANUFACTURER,
         "os.name" to "Wear OS",
         "os.version" to Build.VERSION.RELEASE,
     )
+
+    /** A random id per install, like the phone's. */
+    private fun instanceId(context: Context): String {
+        val file = File(File(context.filesDir, "logs"), "instance-id")
+        return try {
+            file.readText().trim().ifEmpty { null }
+        } catch (e: Exception) {
+            null
+        } ?: UUID.randomUUID().toString().replace("-", "").also {
+            try {
+                file.parentFile?.mkdirs()
+                file.writeText(it)
+            } catch (e: Exception) {
+                // a new id next time is not a problem
+            }
+        }
+    }
 
     private fun summaryFields(ring: LogRing): Map<String, Any?> {
         val state = ServiceLocator.repository.state.value
