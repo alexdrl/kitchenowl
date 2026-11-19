@@ -96,7 +96,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           // <-- Event handler
           debugPrint("[BackgroundFetch] Event received $taskId");
 
-          await BackgroundTask.run(widget._authCubit);
+          await BackgroundTask.runWithLogs(widget._authCubit);
 
           // IMPORTANT:  You must signal completion of your task or the OS can punish your app
           // for taking too long in the background.

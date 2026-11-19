@@ -8,6 +8,7 @@ import 'package:kitchenowl/cubits/household_add_update/household_update_cubit.da
 import 'package:kitchenowl/helpers/share.dart';
 import 'package:kitchenowl/kitchenowl.dart';
 import 'package:kitchenowl/models/import_settings.dart';
+import 'package:kitchenowl/services/app_log.dart';
 
 import 'import_settings_dialog.dart';
 
@@ -89,7 +90,10 @@ class SliverHouseholdDangerZone extends StatelessWidget {
                             content,
                             settings,
                           );
-                        } catch (_) {}
+                        } catch (e, st) {
+                          AppLog.warn('Household import failed',
+                              error: e, stack: st);
+                        }
                       }
                     },
                     child: Text(AppLocalizations.of(context)!.import),

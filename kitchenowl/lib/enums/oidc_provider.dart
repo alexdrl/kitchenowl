@@ -4,6 +4,7 @@ import 'package:kitchenowl/cubits/auth_cubit.dart';
 import 'package:kitchenowl/helpers/url_launcher.dart';
 import 'package:kitchenowl/kitchenowl.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
+import 'package:kitchenowl/services/app_log.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 enum OIDCProivder {
@@ -73,7 +74,8 @@ enum OIDCProivder {
           ),
           nameParts.isNotEmpty ? nameParts : null,
         );
-      } catch (_) {
+      } catch (e, st) {
+        AppLog.warn('Sign in with Apple failed', error: e, stack: st);
         showSnackbar(
           context: context,
           content: Text(AppLocalizations.of(context)!.error),

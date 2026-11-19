@@ -6,12 +6,15 @@ import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl_standalone.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:kitchenowl/services/app_log.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
 import 'package:kitchenowl/services/background_task.dart';
 import 'app.dart';
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppLog.installGlobalHandlers();
+  AppLog.init().ignore();
   usePathUrlStrategy();
   if (!kIsWeb) await findSystemLocale(); //BUG in package for web?
   runApp(App());
@@ -38,7 +41,7 @@ Future<void> handleBackgroundFetchHeadlessTask(
   void Function()? dispose,
   void Function(String)? finish,
 }) async {
-  final execute = runTask ?? BackgroundTask.runHeadless;
+  final execute = runTask ?? BackgroundTask.runHeadlessWithLogs;
   final cleanUp = dispose ?? () => ApiService.getInstance().dispose();
   final complete = finish ??
       (String completedTaskId) {

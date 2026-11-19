@@ -7,6 +7,7 @@ import 'package:kitchenowl/config.dart';
 import 'package:kitchenowl/helpers/named_bytearray.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/token.dart';
+import 'package:kitchenowl/services/app_log.dart';
 import 'package:socket_io_client/socket_io_client.dart';
 
 // Export extensions
@@ -409,7 +410,9 @@ class ApiService {
       } else if (res.statusCode == 401 || res.statusCode == 403) {
         return false;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      AppLog.warn('Token refresh failed', error: e, stack: st);
+    }
     return null;
   }
 
