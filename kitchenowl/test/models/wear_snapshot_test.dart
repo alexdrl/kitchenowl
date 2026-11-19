@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kitchenowl/item_icons.dart';
 import 'package:kitchenowl/models/category.dart';
 import 'package:kitchenowl/models/item.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
@@ -59,6 +60,28 @@ void main() {
 
     test('no lists, no snapshot', () {
       expect(WearSnapshot.build(householdId: 1, lists: [], nowMs: 0), isNull);
+    });
+
+    test('items carry the code point of their icon in the Items font', () {
+      final s = WearSnapshot.build(
+        householdId: 1,
+        lists: [
+          _list(7, 'A', [
+            const ShoppinglistItem(id: 1, name: 'Apple', icon: 'apple'),
+            const ShoppinglistItem(id: 2, name: 'Custom'),
+            const ShoppinglistItem(id: 3, name: 'Unknown', icon: 'no_such'),
+          ])
+        ],
+        nowMs: 0,
+      )!;
+
+      expect(s.items.map((e) => e.icon), [ItemIcons.apple.codePoint, null, null]);
+      // survives the JSON, and is left out when there is none
+      final json = jsonDecode(s.encode());
+      expect(json['items'][0]['icon'], ItemIcons.apple.codePoint);
+      expect(json['items'][1].containsKey('icon'), isFalse);
+      expect(WearSnapshot.fromJson(json).items.first.icon,
+          ItemIcons.apple.codePoint);
     });
 
     test('items without id are left out (the watch cannot address them)', () {

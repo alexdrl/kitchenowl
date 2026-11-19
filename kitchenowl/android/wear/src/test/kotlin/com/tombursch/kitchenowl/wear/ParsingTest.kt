@@ -19,7 +19,7 @@ class ParsingTest {
         {"version":1,"household_id":9,"list_id":7,"list_name":"Groceries","updated_ms":1700000000000,
          "lists":[{"id":7,"name":"Groceries"},{"id":8,"name":"DIY"}],
          "items":[
-           {"id":5,"name":"Butter","description":"","category":"Dairy"},
+           {"id":5,"name":"Butter","description":"","category":"Dairy","icon":259},
            {"id":1,"name":"Milk","description":"2 l","category":"Dairy"},
            {"id":4,"name":"Bread","description":"","category":null,"future_field":true}
          ],
@@ -38,6 +38,9 @@ class ParsingTest {
         assertEquals("2 l", s.items[1].description)
         assertEquals("Dairy", s.items[1].category)
         assertNull(s.items[2].category)
+        // the item's glyph in the Items font, when it has one
+        assertEquals(259, s.items[0].icon)
+        assertNull(s.items[1].icon)
     }
 
     @Test

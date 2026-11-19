@@ -17,6 +17,8 @@ data class WatchItem(
     val name: String,
     val description: String = "",
     val category: String? = null,
+    /** Code point of the item's glyph in the app's Items font (bundled as R.font.items); null = none. */
+    val icon: Int? = null,
 )
 
 @Serializable
