@@ -4,7 +4,7 @@
 # Flutter $KO_FLUTTER downloaded into a cache volume. See "This fork" in CLAUDE.md.
 #
 # Args: <git ref of alexdrl/kitchenowl> <build-name> <build-number>
-# Mounts: /keys/key.properties (+ the keystore it points at), /out (the APK lands here),
+# Mounts: /keys/key.properties (+ the keystore it points at), /out (the APKs land here),
 # and the volumes ko-src (/src), ko-gradle, ko-pub, ko-android-sdk, ko-flutter-cache (/cache).
 set -eu
 REF="$1"; NAME="$2"; NUMBER="$3"
@@ -49,3 +49,12 @@ flutter pub get >/dev/null
 flutter build apk --release --target-platform android-arm64 --build-name="$NAME" --build-number="$NUMBER"
 cp build/app/outputs/flutter-apk/app-release.apk "/out/kitchenowl-$NAME.apk"
 echo "== built /out/kitchenowl-$NAME.apk"
+
+# The Wear OS watch app (branch feat/wear-shopping-list), when this ref has it. Same key and
+# applicationId as the phone app: the Data Layer only pairs those. It is sideloaded with adb,
+# so it goes to a separate file that Obtainium must never pick for the phone.
+if [ -d android/wear ]; then
+  (cd android && ./gradlew -q :wear:assembleRelease -PwearVersionName="$NAME" -PwearVersionCode="$NUMBER")
+  cp build/wear/outputs/apk/release/wear-release.apk "/out/kitchenowl-wear-$NAME.apk"
+  echo "== built /out/kitchenowl-wear-$NAME.apk"
+fi
