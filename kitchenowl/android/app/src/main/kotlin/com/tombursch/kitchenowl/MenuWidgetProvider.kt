@@ -111,6 +111,10 @@ class MenuWidgetProvider : HomeWidgetProvider() {
       height >= width * TALL_RATIO && tallFits -> tall()
       width >= height * WIDE_RATIO && width >= WIDE_MIN_WIDTH_DP && height >= WIDE_MIN_HEIGHT_DP ->
           renderWithNext(context, data, R.layout.menu_widget_wide, 3, 3, "EEEd")
+      // Wide but too small for that, e.g. full width x 2 rows on a phone (S24: ~333x181dp):
+      // today and tomorrow side by side.
+      width >= height * WIDE_RATIO && width >= TWO_DAYS_MIN_WIDTH_DP && height >= TWO_DAYS_MIN_HEIGHT_DP ->
+          renderTwoDays(context, data)
       width >= WEEK_MIN_WIDTH_DP && height >= WEEK_MIN_HEIGHT_DP -> renderWeek(context, data)
       // In between, e.g. full width x 3 rows on a phone (S24: ~333x283dp): too short for
       // the week, not wide enough for the side-by-side layout, but room for a next day.
@@ -127,6 +131,23 @@ class MenuWidgetProvider : HomeWidgetProvider() {
    * that would not fit whole are hidden, never cut in half.
    */
   private fun tallHeightFor(width: Float, rows: Int) = (if (width >= 280f) 192f else 230f) + 66f * rows
+
+  /** Today's card and tomorrow's lunch and dinner side by side (menu_widget_two_days.xml). */
+  private fun renderTwoDays(context: Context, data: JSONObject?): RemoteViews {
+    val views = render(context, data, R.layout.menu_widget_two_days, "EEEEd")
+    val tomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
+    views.setTextViewText(
+        R.id.menu_widget_tomorrow_date,
+        DateFormat.format(DateFormat.getBestDateTimePattern(Locale.getDefault(), "EEEEd"), tomorrow),
+    )
+    val meals = data?.optJSONObject("days")?.optJSONObject(dayKey(tomorrow))
+    for ((meal, id) in listOf("lunch" to R.id.menu_widget_tomorrow_lunch, "dinner" to R.id.menu_widget_tomorrow_dinner)) {
+      val entries = meals?.optJSONArray(meal)
+      val names = (0 until (entries?.length() ?: 0)).map { entries!!.optString(it) }
+      views.setTextViewText(id, if (names.isEmpty()) "—" else names.joinToString(" · "))
+    }
+    return views
+  }
 
   /**
    * Today's card plus the next [count] days (lunch and dinner), for the wide and tall shapes;
@@ -375,6 +396,13 @@ class MenuWidgetProvider : HomeWidgetProvider() {
     private const val WIDE_MIN_WIDTH_DP = 400f
     /** Room for its 3 next days, which are not hidden one by one. */
     private const val WIDE_MIN_HEIGHT_DP = 210f
+    /**
+     * Today + tomorrow side by side, for wide shapes too small for the above: two columns
+     * with meals on up to two lines need ~170dp of height (the "updated" line below them
+     * may be left out).
+     */
+    private const val TWO_DAYS_MIN_WIDTH_DP = 280f
+    private const val TWO_DAYS_MIN_HEIGHT_DP = 150f
     private const val WEEK_MIN_WIDTH_DP = 300f
     private const val WEEK_MIN_HEIGHT_DP = 340f
 

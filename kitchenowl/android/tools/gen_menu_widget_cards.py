@@ -1,8 +1,9 @@
 """Usage: python gen_menu_widget_cards.py ../app/src/main/res/layout
 
-Generates the two "today card + next days" layouts of the menu widget:
+Generates the "today card + more days" layouts of the menu widget:
 - menu_widget_wide.xml: wide and short (today on the left, next 3 days on the right)
 - menu_widget_tall.xml: narrow and tall (today on top, next 4 days below)
+- menu_widget_two_days.xml: small and wide (today and tomorrow side by side)
 
 The today card reuses the ids of menu_widget.xml (date, meal rows, message,
 updated), so MenuWidgetProvider.kt fills all three with the same code. The
@@ -16,11 +17,13 @@ import sys
 MEALS = ["breakfast", "lunch", "dinner", "any"]
 
 
-def today_card(indent, width, height, fill, compact=False):
-    """compact (tall layout): smaller type and padding, "updated" left out (the caller
-    puts it at the very bottom, where losing it to a short widget costs nothing)."""
+def today_card(indent, width, height, fill, compact=False, inline_header=False, date_sp=None):
+    """compact (tall and two-day layouts): smaller type and padding, "updated" left out
+    (the caller puts it at the very bottom, where losing it to a short widget costs
+    nothing). inline_header: "TODAY" and the date on one line, to save height."""
     p = " " * indent
-    date_sp, meal_sp, gap = ("16sp", "14sp", "4dp") if compact else ("17sp", "15sp", "6dp")
+    default_date_sp, meal_sp, gap = ("16sp", "14sp", "4dp") if compact else ("17sp", "15sp", "6dp")
+    date_sp = date_sp or default_date_sp
     out = [
         f'{p}<LinearLayout',
         f'{p}    android:id="@+id/menu_widget_today_card"',
@@ -36,23 +39,8 @@ def today_card(indent, width, height, fill, compact=False):
         f'{p}    android:paddingTop="{"10dp" if compact else "12dp"}"',
         f'{p}    android:paddingEnd="14dp"',
         f'{p}    android:paddingBottom="{"8dp" if compact else "10dp"}">',
-        f'{p}    <TextView',
-        f'{p}        android:layout_width="wrap_content"',
-        f'{p}        android:layout_height="wrap_content"',
-        f'{p}        android:text="@string/menu_widget_today_label"',
-        f'{p}        android:textColor="@color/menu_widget_accent"',
-        f'{p}        android:textSize="11sp"',
-        f'{p}        android:textStyle="bold" />',
-        f'{p}    <TextView',
-        f'{p}        android:id="@+id/menu_widget_date"',
-        f'{p}        android:layout_width="match_parent"',
-        f'{p}        android:layout_height="wrap_content"',
-        f'{p}        android:ellipsize="end"',
-        f'{p}        android:maxLines="1"',
-        f'{p}        android:textColor="@color/menu_widget_text"',
-        f'{p}        android:textSize="{date_sp}"',
-        f'{p}        android:textStyle="bold" />',
     ]
+    out += day_header(p + "    ", "@string/menu_widget_today_label", "menu_widget_date", date_sp, inline_header)
     for m in MEALS:
         out += [
             f'{p}    <LinearLayout',
@@ -111,6 +99,77 @@ def today_card(indent, width, height, fill, compact=False):
         f'{p}        android:visibility="gone" />',
         f'{p}</LinearLayout>',
     ]
+    return out
+
+
+def day_header(p, label, date_id, date_sp, inline):
+    """A day's "TODAY"/"TOMORROW" label and its date, stacked or on one line."""
+    label_view = [
+        f'{p}<TextView',
+        f'{p}    android:layout_width="wrap_content"',
+        f'{p}    android:layout_height="wrap_content"',
+    ] + ([f'{p}    android:layout_marginEnd="6dp"'] if inline else []) + [
+        f'{p}    android:text="{label}"',
+        f'{p}    android:textColor="@color/menu_widget_accent"',
+        f'{p}    android:textSize="11sp"',
+        f'{p}    android:textStyle="bold" />',
+    ]
+    date_view = [
+        f'{p}<TextView',
+        f'{p}    android:id="@+id/{date_id}"',
+        f'{p}    android:layout_width="match_parent"',
+        f'{p}    android:layout_height="wrap_content"',
+        f'{p}    android:ellipsize="end"',
+        f'{p}    android:maxLines="1"',
+        f'{p}    android:textColor="@color/menu_widget_text"',
+        f'{p}    android:textSize="{date_sp}"',
+        f'{p}    android:textStyle="bold" />',
+    ]
+    if not inline:
+        return label_view + date_view
+    return [
+        f'{p}<LinearLayout',
+        f'{p}    android:layout_width="match_parent"',
+        f'{p}    android:layout_height="wrap_content"',
+        f'{p}    android:gravity="center_vertical"',
+        f'{p}    android:orientation="horizontal">',
+    ] + ["    " + line for line in label_view + date_view] + [f'{p}</LinearLayout>']
+
+
+def tomorrow_column(indent):
+    """Tomorrow's lunch and dinner (H1), beside today's card, without a background."""
+    p = " " * indent
+    out = [
+        f'{p}<LinearLayout',
+        f'{p}    android:layout_width="0dp"',
+        f'{p}    android:layout_height="wrap_content"',
+        f'{p}    android:layout_weight="1"',
+        f'{p}    android:orientation="vertical"',
+        f'{p}    android:paddingStart="12dp"',
+        f'{p}    android:paddingTop="10dp"',
+        f'{p}    android:paddingEnd="6dp">',
+    ]
+    out += day_header(p + "    ", "@string/menu_widget_tomorrow_label", "menu_widget_tomorrow_date", "15sp", True)
+    for m, label in (("lunch", "@string/menu_widget_lunch"), ("dinner", "@string/menu_widget_dinner")):
+        out += [
+            f'{p}    <TextView',
+            f'{p}        android:layout_width="wrap_content"',
+            f'{p}        android:layout_height="wrap_content"',
+            f'{p}        android:layout_marginTop="4dp"',
+            f'{p}        android:text="{label}"',
+            f'{p}        android:textColor="@color/menu_widget_accent"',
+            f'{p}        android:textSize="12sp"',
+            f'{p}        android:textStyle="bold" />',
+            f'{p}    <TextView',
+            f'{p}        android:id="@+id/menu_widget_tomorrow_{m}"',
+            f'{p}        android:layout_width="match_parent"',
+            f'{p}        android:layout_height="wrap_content"',
+            f'{p}        android:ellipsize="end"',
+            f'{p}        android:maxLines="2"',
+            f'{p}        android:textColor="@color/menu_widget_text"',
+            f'{p}        android:textSize="14sp" />',
+        ]
+    out.append(f'{p}</LinearLayout>')
     return out
 
 
@@ -219,24 +278,8 @@ wide += [
 wide += next_rows(8, 3, side_by_side=True)
 wide += ['    </LinearLayout>', '</LinearLayout>']
 
-tall = root("Narrow and tall menu widget: today on top, the next days below (as many as fit).") + [
-    '    android:orientation="vertical"',
-    '    android:padding="10dp">',
-]
-tall += today_card(4, "match_parent", "wrap_content", None, compact=True)
-tall += [
-    '    <LinearLayout',
-    '        android:id="@+id/menu_widget_next"',
-    '        android:layout_width="match_parent"',
-    '        android:layout_height="wrap_content"',
-    '        android:orientation="vertical"',
-    '        android:paddingStart="6dp"',
-    '        android:paddingTop="8dp"',
-    '        android:paddingEnd="6dp">',
-]
-tall += next_rows(8, 4, side_by_side=False, compact=True)
-tall += [
-    '    </LinearLayout>',
+# Spacer and "updated" at the very bottom: a widget too short for it just loses that line.
+UPDATED_AT_BOTTOM = [
     '    <FrameLayout',
     '        android:layout_width="match_parent"',
     '        android:layout_height="0dp"',
@@ -253,7 +296,41 @@ tall += [
     '</LinearLayout>',
 ]
 
+tall = root("Narrow and tall menu widget: today on top, the next days below (as many as fit).") + [
+    '    android:orientation="vertical"',
+    '    android:padding="10dp">',
+]
+tall += today_card(4, "match_parent", "wrap_content", None, compact=True)
+tall += [
+    '    <LinearLayout',
+    '        android:id="@+id/menu_widget_next"',
+    '        android:layout_width="match_parent"',
+    '        android:layout_height="wrap_content"',
+    '        android:orientation="vertical"',
+    '        android:paddingStart="6dp"',
+    '        android:paddingTop="8dp"',
+    '        android:paddingEnd="6dp">',
+]
+tall += next_rows(8, 4, side_by_side=False, compact=True)
+tall += ['    </LinearLayout>'] + UPDATED_AT_BOTTOM
+
+two_days = root("Small and wide menu widget (H1): today and tomorrow side by side.") + [
+    '    android:orientation="vertical"',
+    '    android:padding="10dp">',
+    '    <LinearLayout',
+    '        android:layout_width="match_parent"',
+    '        android:layout_height="wrap_content"',
+    '        android:orientation="horizontal">',
+]
+two_days += today_card(8, "0dp", "wrap_content", "1", compact=True, inline_header=True, date_sp="15sp")
+two_days += tomorrow_column(8)
+two_days += ['    </LinearLayout>'] + UPDATED_AT_BOTTOM
+
 out_dir = sys.argv[1]
-for name, lines in (("menu_widget_wide.xml", wide), ("menu_widget_tall.xml", tall)):
+for name, lines in (
+    ("menu_widget_wide.xml", wide),
+    ("menu_widget_tall.xml", tall),
+    ("menu_widget_two_days.xml", two_days),
+):
     with open(os.path.join(out_dir, name), "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
