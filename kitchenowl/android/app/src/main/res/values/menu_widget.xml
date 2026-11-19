@@ -10,6 +10,7 @@
     <string name="menu_widget_open_app">Open KitchenOwl to load the menu</string>
     <string name="menu_widget_week_title">This week</string>
     <string name="menu_widget_today_label">TODAY</string>
+    <string name="menu_widget_tomorrow_label">TOMORROW</string>
     <string name="menu_widget_next_days">Next days</string>
     <string name="menu_widget_updated">Updated %1$s</string>
 
