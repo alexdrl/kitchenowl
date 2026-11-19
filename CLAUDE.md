@@ -28,6 +28,8 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 | `fix/zero-yields-scale` | TomBursch/kitchenowl#1237 | recipes with 0 servings no longer throw when scaled |
 | `feat/mcp-item-categories` | TomBursch/kitchenowl#1233 | MCP tools to edit items and manage categories |
 | `fix/delete-category-by-name` | TomBursch/kitchenowl#1234 | delete a category by name |
+| `feat/app-logs` | never (fork only) | `AppLog`: rotating log file on the phone (2 × 1 MB), batched OTLP/HTTP upload to the cluster's collector from the existing background fetch (every 6 h, sooner once after an error), "Send logs" in the settings, and the `catch (_)` logs of upstream files |
+| `feat/app-logs-fork` | never (needs `feat/app-logs`, `feat/wear-menu-tile`, `feat/android-calendar-sync`, `feat/planner-ics`; merges them) | the logs of the fork's own features: the watch's log buffer relayed by the phone, the watch's "Send logs", summary facts and `catch (_)` logs of the widget, calendar, ICS sheet and watch code. Kept apart so the upstream-candidate feature branches never get the fork-only log upload |
 | `perf/lazy-imports` | TomBursch/kitchenowl#1243 | backend imports litellm, the NLP parser, recipe-scrapers and pandas on first use (worker about 500 → 170 MB at startup) |
 | `fork/claude-md` | never | this file and `fork/` (fork-only tooling) |
 
@@ -45,6 +47,7 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 - Build number = upstream build × 100 + fork build, e.g. `0.8.1-fork.1` / `12601` on upstream `0.8.1+126`. The next upstream release then still counts as newer. `MIN_FRONTEND_VERSION` only compares against this number, so a large value is harmless.
 - The checkout used by the build lives in the `ko-src` volume. Later builds are incremental and take about 5 minutes; the first one takes about 25.
 - To try an APK on the x86_64 emulator, install it with `adb install --abi arm64-v8a`: the APK has `x86_64` plugin libraries but no `libflutter.so` for it. A widget layout may only use classes RemoteViews allows (no plain `View`); if one fails, the launcher shows "Can't load widget" and logcat names the class.
+- Logs (`feat/app-logs`): `fork/build-apk.sh` passes `/keys/app-logs.env` (`KO_LOGS_ENDPOINT`, `KO_LOGS_TOKEN`, `KO_LOGS_ENVIRONMENT`) as `--dart-define-from-file`. It holds the collector's token, so it is never in git; the private half says where it comes from. Without it the APK sends nothing and hides "Send logs".
 - `fork/build-apk.sh` also builds the Wear OS app (`kitchenowl-wear-<version>.apk`) when the ref has `android/wear/`. It shares the phone app's `applicationId` and key (the Data Layer requires both) and is sideloaded with `adb`: a phone APK that bundles a wear APK no longer installs it on the watch since Wear OS 2.0. Keep it out of the folder Obtainium reads, or Obtainium may pick it for the phone.
 - `kitchenowl/fonts/Items.ttf` is built from the Icons8 icons, and their licence forbids redistribution. Do not publish the APK anywhere public.
 
