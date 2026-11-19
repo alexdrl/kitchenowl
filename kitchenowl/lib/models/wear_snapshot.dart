@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:kitchenowl/helpers/item_name.dart';
 import 'package:kitchenowl/item_icons.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
+import 'package:kitchenowl/services/app_log.dart';
 
 /// What the phone publishes for the Wear OS app at `/kitchenowl/shoppinglist`
 /// (Wearable Data Layer, UTF-8 JSON). The watch app has no network access and no
@@ -241,7 +242,8 @@ class WearAction {
         description: map['description'] as String? ?? '',
         createdMs: map['created_ms'] as int? ?? 0,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLog.warn('Unreadable action from the watch', error: e, stack: st);
       return null;
     }
   }

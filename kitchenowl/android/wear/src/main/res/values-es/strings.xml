@@ -48,4 +48,8 @@
     <string name="menu_empty_body">Planifica las comidas en KitchenOwl en el móvil.</string>
     <string name="menu_no_today">Sin menú para hoy</string>
     <string name="now_suffix">ahora</string>
+
+    <string name="send_logs">Enviar logs</string>
+    <string name="logs_sent">Enviados al móvil</string>
+    <string name="logs_not_sent">No se pudieron enviar</string>
 </resources>

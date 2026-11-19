@@ -7,6 +7,7 @@ import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/planner.dart';
 import 'package:kitchenowl/models/planner_note.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
+import 'package:kitchenowl/services/app_log.dart';
 
 /// Feeds the Android home screen widget with the planned menu
 /// (`MenuWidgetProvider.kt`).
@@ -53,8 +54,9 @@ abstract class MenuWidget {
       if (await _calendarOn()) {
         await HomeWidget.updateWidget(qualifiedAndroidName: _calendarTrigger);
       }
-    } catch (_) {
+    } catch (e, st) {
       // The widget is a nicety: never let it break the planner.
+      AppLog.warn('Menu widget update failed', error: e, stack: st);
     }
   }
 
@@ -85,8 +87,10 @@ abstract class MenuWidget {
       ).wait;
       if (plans == null || notes == null) return;
       await update(household, plans, notes);
-    } catch (_) {
+    } catch (e, st) {
       // Same as update(): the widget must never break the background task.
+      AppLog.warn('Menu widget background refresh failed',
+          error: e, stack: st);
     }
   }
 
@@ -102,7 +106,8 @@ abstract class MenuWidget {
       final id = household['id'];
       if (id is! int) return null;
       return Household(id: id, name: household['name'] as String? ?? '');
-    } catch (_) {
+    } catch (e, st) {
+      AppLog.warn('Unreadable menu widget data', error: e, stack: st);
       return null;
     }
   }

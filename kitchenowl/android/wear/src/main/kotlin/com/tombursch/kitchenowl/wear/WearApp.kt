@@ -6,6 +6,7 @@ import androidx.wear.tiles.TileService
 import com.tombursch.kitchenowl.wear.data.MenuRepository
 import com.tombursch.kitchenowl.wear.data.PrefsStore
 import com.tombursch.kitchenowl.wear.data.WatchRepository
+import com.tombursch.kitchenowl.wear.log.WearLog
 import com.tombursch.kitchenowl.wear.sync.DataLayerActionSink
 import com.tombursch.kitchenowl.wear.tile.MenuTileService
 import com.tombursch.kitchenowl.wear.tile.ShoppingTileService
@@ -21,6 +22,8 @@ import kotlinx.coroutines.launch
 class WearApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        WearLog.init(this)
+        WearLog.d("App", "Process started", mapOf("version" to BuildConfig.VERSION_NAME))
         ServiceLocator.init(this)
     }
 }
@@ -60,6 +63,7 @@ object ServiceLocator {
             TileService.getUpdater(context).requestUpdate(MenuTileService::class.java)
         } catch (e: Exception) {
             // The tile is optional.
+            WearLog.w("Tile", "Menu tile update request failed", e)
         }
     }
 
@@ -68,6 +72,7 @@ object ServiceLocator {
             TileService.getUpdater(context).requestUpdate(ShoppingTileService::class.java)
         } catch (e: Exception) {
             // The tile is optional; never let it break anything else.
+            WearLog.w("Tile", "Shopping tile update request failed", e)
         }
     }
 }

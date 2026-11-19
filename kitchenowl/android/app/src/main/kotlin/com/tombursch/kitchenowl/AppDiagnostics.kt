@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.app.NotificationManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.os.Build
 import android.os.PowerManager
@@ -64,6 +65,9 @@ object AppDiagnostics {
                 else -> null
             }
         }
+        // The phone calendar of planned meals (CalendarSync.kt) needs it.
+        out["calendar_permission"] =
+            context.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
         out["sdk"] = Build.VERSION.SDK_INT
         return out
     }

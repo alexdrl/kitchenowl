@@ -28,6 +28,8 @@ import java.util.concurrent.TimeUnit
  *  - phone to watch: `/kitchenowl/shoppinglist`, the JSON built by Dart (WearSnapshot), and
  *    `/kitchenowl/menu`, the planned menu (WearMenu)
  *  - watch to phone: `/kitchenowl/actions/<uuid>`, one item per action, deleted once applied
+ *  - watch to phone: `/kitchenowl/logs/<uuid>`, the watch's log lines ([WearLogInbox]);
+ *    phone to watch: `/kitchenowl/logs-request/<id>`, "Send logs" on the phone asks for them
  *
  * The same channel handler is installed in the UI engine (MainActivity) and in the headless
  * engine of [WearActionsWorker]; all the logic stays in Dart.
@@ -61,7 +63,15 @@ object WearBridge {
             when (call.method) {
                 "publishSnapshot" -> publish(context, SNAPSHOT_PATH, call.arguments as String, result)
                 "publishMenu" -> publish(context, MENU_PATH, call.arguments as String, result)
-                "pendingActions" -> pendingActions(context, result)
+                "pendingActions" -> {
+                    WearLogInbox.drain(context) { onWatchLogs(context, listOf(it)) }
+                    pendingActions(context, result)
+                }
+                "requestWatchLogs" -> requestWatchLogs(context, call.arguments as String, result)
+                "cancelWatchLogs" -> {
+                    deleteLogRequest(context, call.arguments as String)
+                    result.success(null)
+                }
                 "ackActions" -> ack(context, call.arguments as List<*>, result)
                 "headlessDone" -> {
                     onHeadlessDone?.invoke()
@@ -109,6 +119,61 @@ object WearBridge {
         val client = Wearable.getDataClient(context)
         val tasks = uris.filterIsInstance<String>().map { client.deleteDataItems(Uri.parse(it)) }
         Tasks.whenAllComplete(tasks).addOnCompleteListener { result.success(null) }
+    }
+
+    /**
+     * "Send logs" on the phone: asks the watch for its lines. False when no watch is connected
+     * (nothing to wait for). The answer comes back as `/kitchenowl/logs/...` with this id.
+     */
+    private fun requestWatchLogs(context: Context, id: String, result: MethodChannel.Result) {
+        Wearable.getNodeClient(context).connectedNodes
+            .addOnSuccessListener { nodes ->
+                if (nodes.isEmpty()) {
+                    result.success(false)
+                    return@addOnSuccessListener
+                }
+                val json = "{\"request_id\":\"$id\",\"created_ms\":${System.currentTimeMillis()}}"
+                val request = PutDataRequest.create("${WearLogInbox.REQUEST_PATH}/$id")
+                    .setData(json.toByteArray(Charsets.UTF_8))
+                    .setUrgent()
+                Wearable.getDataClient(context).putDataItem(request)
+                    .addOnSuccessListener { result.success(true) }
+                    .addOnFailureListener { result.success(false) }
+            }
+            .addOnFailureListener { result.success(false) }
+    }
+
+    private fun deleteLogRequest(context: Context, id: String) {
+        val uri = Uri.Builder().scheme("wear").path("${WearLogInbox.REQUEST_PATH}/$id").build()
+        Wearable.getDataClient(context).deleteDataItems(uri)
+    }
+
+    /**
+     * The watch's lines were stored. Tells a waiting "Send logs" on the phone, and when the
+     * watch's own button asked for it, gets them sent now (the open app, the running headless
+     * engine, or a new [WearActionsWorker] run, whose Dart side uploads).
+     */
+    fun onWatchLogs(context: Context, received: List<WearLogInbox.Received>) {
+        val app = context.applicationContext
+        main.post {
+            for (r in received) {
+                val id = r.requestId ?: continue
+                uiChannel?.invokeMethod(
+                    "watchLogs",
+                    mapOf("request_id" to id, "version" to r.version, "lines" to r.lines),
+                )
+                deleteLogRequest(app, id)
+            }
+            if (received.any { it.uploadNow }) {
+                val ui = uiChannel
+                val headless = headlessChannel
+                when {
+                    ui != null && uiResumed -> ui.invokeMethod("logsUploadNow", null)
+                    headless != null -> headless.invokeMethod("logsUploadNow", null)
+                    else -> enqueueActionsWork(app)
+                }
+            }
+        }
     }
 
     /** The watch wrote an action. Called from [WearActionsService], on a binder thread. */

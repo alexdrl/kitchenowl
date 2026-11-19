@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:kitchenowl/services/app_log.dart';
 import 'package:kitchenowl/services/menu_widget.dart';
 
 /// The planned meals as a calendar of the phone (Android only): an account of
@@ -14,7 +15,9 @@ abstract class PhoneCalendar {
     if (!supported) return false;
     try {
       return await _channel.invokeMethod<bool>('isEnabled') ?? false;
-    } catch (_) {
+    } catch (e, st) {
+      AppLog.warn('Reading the phone calendar state failed',
+          error: e, stack: st);
       return false;
     }
   }
@@ -29,7 +32,9 @@ abstract class PhoneCalendar {
         return false;
       }
       return await _channel.invokeMethod<bool>('enable') ?? false;
-    } catch (_) {
+    } catch (e, st) {
+      AppLog.warn('Turning the phone calendar on or off failed',
+          error: e, stack: st);
       return false;
     }
   }

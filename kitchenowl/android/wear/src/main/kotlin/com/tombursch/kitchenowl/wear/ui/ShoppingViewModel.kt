@@ -6,6 +6,8 @@ import com.tombursch.kitchenowl.wear.ServiceLocator
 import com.tombursch.kitchenowl.wear.data.PhoneMenu
 import com.tombursch.kitchenowl.wear.data.WatchItem
 import com.tombursch.kitchenowl.wear.data.WatchState
+import com.tombursch.kitchenowl.wear.log.LogRelay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,6 +66,20 @@ class ShoppingViewModel : ViewModel() {
         _menuNav.value = null
     }
 
+    /** "Send logs": null, then true/false (handed to the phone or not) for a few seconds. */
+    private val _logsSent = MutableStateFlow<Boolean?>(null)
+    val logsSent: StateFlow<Boolean?> = _logsSent
+
+    /** Hands the log buffer to the phone, which sends it right away (no network on the watch). */
+    fun sendLogs(context: android.content.Context) {
+        val app = context.applicationContext
+        viewModelScope.launch(Dispatchers.IO) {
+            _logsSent.value = LogRelay.sendNow(app)
+            delay(LOGS_FEEDBACK_MILLIS)
+            _logsSent.value = null
+        }
+    }
+
     private var undoTimeout: Job? = null
     private var refreshTimeout: Job? = null
 
@@ -115,5 +131,6 @@ class ShoppingViewModel : ViewModel() {
         const val STRIKE_MILLIS = 2_000L
         const val UNDO_MILLIS = 5_000L
         const val REFRESH_FEEDBACK_MILLIS = 8_000L
+        const val LOGS_FEEDBACK_MILLIS = 4_000L
     }
 }

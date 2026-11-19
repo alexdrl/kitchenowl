@@ -28,6 +28,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.guava.future
 import java.time.LocalDate
+import com.tombursch.kitchenowl.wear.log.WearLog
 import java.time.LocalDateTime
 import java.time.format.TextStyle
 import java.util.Locale
@@ -40,7 +41,11 @@ class MenuTileService : TileService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> =
-        scope.future { buildTile(applicationContext, ServiceLocator.menuRepository.state.value, LocalDateTime.now()) }
+        scope.future {
+            val menu = ServiceLocator.menuRepository.state.value
+            WearLog.d("Tile", "Menu tile drawn", mapOf("menu_updated_ms" to menu?.updatedMs, "days" to menu?.days?.size))
+            buildTile(applicationContext, menu, LocalDateTime.now())
+        }
 
     override fun onTileResourcesRequest(
         requestParams: RequestBuilders.ResourcesRequest,

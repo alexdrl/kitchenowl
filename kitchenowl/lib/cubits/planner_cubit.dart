@@ -10,6 +10,7 @@ import 'package:kitchenowl/models/planner_note.dart';
 import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
+import 'package:kitchenowl/services/app_log.dart';
 import 'package:kitchenowl/services/menu_widget.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
 import 'package:kitchenowl/services/wear_bridge.dart';
@@ -133,7 +134,8 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
     bool ok;
     try {
       ok = await request();
-    } catch (_) {
+    } catch (e, st) {
+      AppLog.warn('Planner note request failed', error: e, stack: st);
       ok = false;
     }
     // Report the result right away; the reload can be slow when offline
