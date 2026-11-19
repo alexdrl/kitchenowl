@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.Font
@@ -90,7 +91,7 @@ fun WearRoot(viewModel: ShoppingViewModel) {
 
             when {
                 menuNav != null -> MenuScreen(viewModel, menu, menuNav!!)
-                state.snapshot == null -> NoSnapshotScreen()
+                state.snapshot == null -> NoSnapshotScreen(viewModel)
                 picking -> ListPicker(
                     lists = state.lists,
                     selectedId = state.snapshot?.listId,
@@ -109,7 +110,7 @@ fun WearRoot(viewModel: ShoppingViewModel) {
 
 /** The phone has not sent a list yet. */
 @Composable
-private fun NoSnapshotScreen() {
+private fun NoSnapshotScreen(viewModel: ShoppingViewModel) {
     val listState = rememberScalingLazyListState()
     ScreenScaffold(scrollState = listState) { padding ->
         ScalingLazyColumn(state = listState, contentPadding = padding, modifier = Modifier.fillMaxSize()) {
@@ -122,7 +123,31 @@ private fun NoSnapshotScreen() {
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 )
             }
+            // Most useful exactly when nothing arrives from the phone.
+            item(key = "logs") { SendLogsBar(viewModel) }
         }
+    }
+}
+
+/** "Send logs": hands the watch's log buffer to the phone, which sends it to the server now. */
+@Composable
+private fun SendLogsBar(viewModel: ShoppingViewModel) {
+    val sent by viewModel.logsSent.collectAsState()
+    val context = LocalContext.current
+    Bar(Color(0xFF1C1C20), SmallBarHeight, enabled = sent == null, onClick = { viewModel.sendLogs(context) }) {
+        Text(
+            stringResource(
+                when (sent) {
+                    null -> R.string.send_logs
+                    true -> R.string.logs_sent
+                    false -> R.string.logs_not_sent
+                },
+            ),
+            fontSize = 12.sp,
+            color = Color(0xFFB0B0B8),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -230,6 +255,7 @@ private fun CategoriesScreen(viewModel: ShoppingViewModel, state: WatchState, on
                     )
                 }
             }
+            item(key = "logs") { SendLogsBar(viewModel) }
         }
     }
 }

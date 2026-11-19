@@ -3,6 +3,8 @@ import 'package:kitchenowl/cubits/auth_cubit.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
+import 'package:kitchenowl/services/app_log.dart';
+import 'package:kitchenowl/services/app_log_upload.dart';
 import 'package:kitchenowl/services/menu_widget.dart';
 import 'package:kitchenowl/services/storage/mem_storage.dart';
 import 'package:kitchenowl/services/storage/storage.dart';
@@ -11,6 +13,31 @@ import 'package:kitchenowl/services/transactions/shoppinglist.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class BackgroundTask {
+  /// The background fetch of the open app, plus the log upload (which has no wake-up of its own).
+  static Future<void> runWithLogs(AuthCubit authCubit) =>
+      _withLogs(() => run(authCubit));
+
+  /// The headless background fetch, plus the log upload.
+  static Future<void> runHeadlessWithLogs() async {
+    AppLog.installGlobalHandlers();
+    await AppLog.init(source: 'bg');
+    await _withLogs(runHeadless);
+  }
+
+  static Future<void> _withLogs(Future<void> Function() work) async {
+    await AppLog.mark('background_fetch');
+    Future<void> logged() async {
+      try {
+        await work();
+      } catch (e, st) {
+        AppLog.warn('Background fetch failed', error: e, stack: st);
+        rethrow;
+      }
+    }
+
+    await Future.wait([logged(), AppLogUploader.maybeUpload()]);
+  }
+
   static Future<void> run(AuthCubit authCubit) async {
     if (authCubit.getUser() != null) {
       await Future.wait([

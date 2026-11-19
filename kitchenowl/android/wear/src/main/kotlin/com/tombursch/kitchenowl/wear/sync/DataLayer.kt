@@ -18,6 +18,10 @@ import com.tombursch.kitchenowl.wear.data.WatchAction
 import com.tombursch.kitchenowl.wear.data.actionUuid
 import com.tombursch.kitchenowl.wear.data.encodeAction
 import com.tombursch.kitchenowl.wear.data.parseSnapshot
+import com.tombursch.kitchenowl.wear.log.LOGS_REQUEST_PATH
+import com.tombursch.kitchenowl.wear.log.LogRelay
+import com.tombursch.kitchenowl.wear.log.WearLog
+import com.tombursch.kitchenowl.wear.log.parseLogRequest
 
 /**
  * Writes each action as its own Data Layer item, not as a message: it survives a lost
@@ -25,14 +29,21 @@ import com.tombursch.kitchenowl.wear.data.parseSnapshot
  */
 class DataLayerActionSink(private val context: Context) : ActionSink {
     override fun send(uuid: String, action: WatchAction): Boolean = try {
+        WearLog.d("Actions", "Sending action", mapOf("type" to action.type.name, "list_id" to action.listId))
+        // New log lines ride along with the action, in the same sync.
+        LogRelay.withAction(context)
         val request = PutDataRequest.create("$ACTIONS_PATH/$uuid")
             .setData(encodeAction(action))
             .setUrgent()
         Wearable.getDataClient(context).putDataItem(request)
-            .addOnFailureListener { ServiceLocator.repository.markUnsent(uuid) }
+            .addOnFailureListener { e ->
+                WearLog.w("Actions", "Action not handed to the Data Layer", e)
+                ServiceLocator.repository.markUnsent(uuid)
+            }
         true
     } catch (e: Exception) {
         // Play services missing or the like: kept and retried on the next start.
+        WearLog.w("Actions", "Could not send an action", e)
         false
     }
 }
@@ -44,9 +55,16 @@ class PhoneListenerService : WearableListenerService() {
             val path = event.dataItem.uri.path
             when {
                 event.type == DataEvent.TYPE_CHANGED && path == SNAPSHOT_PATH ->
-                    event.dataItem.data?.let(::parseSnapshot)?.let(ServiceLocator.repository::onSnapshot)
+                    onSnapshotData(event.dataItem.data)
                 event.type == DataEvent.TYPE_CHANGED && path == MENU_PATH ->
-                    event.dataItem.data?.let(::parseMenu)?.let(ServiceLocator.menuRepository::onMenu)
+                    onMenuData(event.dataItem.data)
+                event.type == DataEvent.TYPE_CHANGED && path?.startsWith("$LOGS_REQUEST_PATH/") == true ->
+                    event.dataItem.data?.let(::parseLogRequest)?.let { request ->
+                        // An old request found later (the watch was away): the phone gave up on it.
+                        if (System.currentTimeMillis() - request.createdMs < REQUEST_MAX_AGE_MS) {
+                            LogRelay.answer(applicationContext, request.requestId)
+                        }
+                    }
                 // The phone deleted an action item: it has applied it.
                 event.type == DataEvent.TYPE_DELETED -> actionUuid(path)?.let(ServiceLocator.repository::onActionDeleted)
             }
@@ -54,6 +72,32 @@ class PhoneListenerService : WearableListenerService() {
     }
 
     companion object {
+        private const val REQUEST_MAX_AGE_MS = 2 * 60 * 1000L
+
+        private fun onSnapshotData(data: ByteArray?) {
+            val snapshot = data?.let(::parseSnapshot)
+            if (snapshot == null) {
+                WearLog.w("Sync", "Unreadable list from the phone", fields = mapOf("bytes" to data?.size))
+                return
+            }
+            WearLog.d(
+                "Sync",
+                "List received",
+                mapOf("list_id" to snapshot.listId, "items" to snapshot.items.size, "updated_ms" to snapshot.updatedMs),
+            )
+            ServiceLocator.repository.onSnapshot(snapshot)
+        }
+
+        private fun onMenuData(data: ByteArray?) {
+            val menu = data?.let(::parseMenu)
+            if (menu == null) {
+                WearLog.w("Sync", "Unreadable menu from the phone", fields = mapOf("bytes" to data?.size))
+                return
+            }
+            WearLog.d("Sync", "Menu received", mapOf("days" to menu.days.size, "updated_ms" to menu.updatedMs))
+            ServiceLocator.menuRepository.onMenu(menu)
+        }
+
         /**
          * Reads what the Data Layer holds, for the moments nothing was listening: the latest
          * snapshot, and which of our actions are still waiting for the phone.
@@ -67,9 +111,9 @@ class PhoneListenerService : WearableListenerService() {
                         for (item in items) {
                             val path = item.uri.path
                             if (path == SNAPSHOT_PATH) {
-                                item.data?.let(::parseSnapshot)?.let(ServiceLocator.repository::onSnapshot)
+                                onSnapshotData(item.data)
                             } else if (path == MENU_PATH) {
-                                item.data?.let(::parseMenu)?.let(ServiceLocator.menuRepository::onMenu)
+                                onMenuData(item.data)
                             } else {
                                 actionUuid(path)?.let(waiting::add)
                             }
@@ -80,6 +124,7 @@ class PhoneListenerService : WearableListenerService() {
                     ServiceLocator.repository.reconcile(waiting)
                     ServiceLocator.repository.resendUnsent()
                 }
+                .addOnFailureListener { e -> WearLog.w("Sync", "Could not read the Data Layer", e) }
         }
     }
 }

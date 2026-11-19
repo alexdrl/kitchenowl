@@ -116,7 +116,8 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/menu_widget_info" />
         </receiver>
-        <!-- Wear OS: wakes the app when the watch writes an action (see WearBridge.kt) -->
+        <!-- Wear OS: wakes the app when the watch writes an action (see WearBridge.kt),
+             or hands over its log lines (WearLogInbox.kt) -->
         <service
             android:name=".WearActionsService"
             android:exported="true">
@@ -126,6 +127,13 @@
                     android:scheme="wear"
                     android:host="*"
                     android:pathPrefix="/kitchenowl/actions/" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/kitchenowl/logs/" />
             </intent-filter>
         </service>
         <!-- Planned meals as a read-only calendar of an account of our own (CalendarSync.kt) -->

@@ -9,6 +9,8 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Facts for the summary of "Send logs" (lib/services/app_log_upload.dart)
+        AppDiagnostics.install(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
         // Wear OS bridge (lib/services/wear_bridge.dart): the watch app's shopping list.
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WearBridge.CHANNEL)
         WearBridge.install(channel, applicationContext)

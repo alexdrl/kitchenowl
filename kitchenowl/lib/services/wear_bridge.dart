@@ -9,6 +9,8 @@ import 'package:kitchenowl/models/planner.dart';
 import 'package:kitchenowl/models/planner_note.dart';
 import 'package:kitchenowl/models/wear_menu.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
+import 'package:kitchenowl/services/app_log.dart';
+import 'package:kitchenowl/services/app_log_upload.dart';
 import 'package:kitchenowl/models/item.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/models/wear_snapshot.dart';
@@ -26,6 +28,10 @@ import 'package:kitchenowl/services/transactions/shoppinglist.dart';
 /// `WearActionsService` (MainActivity.kt) tells us, [processPending] applies them with the
 /// normal transactions (so they queue when the phone is offline), deletes them and
 /// republishes. Works in the UI engine and in a headless engine ([wearActionsMain]).
+///
+/// Logs (fork): the watch hands its log lines over as `/kitchenowl/logs/<uuid>`, which the
+/// native side stores for [AppLogUploader]. "Send logs" asks the watch for them first
+/// ([_askWatchForLogs]); the watch's own button gets them sent right away (`logsUploadNow`).
 class WearBridge {
   static const _channel = MethodChannel('com.tombursch.kitchenowl/wear');
 
@@ -49,10 +55,60 @@ class WearBridge {
   static void init() {
     if (!isSupported || _initialized) return;
     _initialized = true;
-    _channel.setMethodCallHandler((call) async {
-      if (call.method == 'actionsChanged') unawaited(processPending());
-    });
+    _channel.setMethodCallHandler(_onNativeCall);
+    AppDiagnostics.registerBeforeManualUpload('watch', _askWatchForLogs);
     unawaited(processPending());
+  }
+
+  static Future<void> _onNativeCall(MethodCall call) async {
+    switch (call.method) {
+      case 'actionsChanged':
+        unawaited(processPending());
+      case 'watchLogs':
+        _watchReplies.add((call.arguments as Map).cast<String, Object?>());
+      case 'logsUploadNow':
+        // The watch's "Send logs": its lines are in the inbox and upload-now is set.
+        unawaited(AppLogUploader.maybeUpload());
+    }
+  }
+
+  static final _watchReplies =
+      StreamController<Map<String, Object?>>.broadcast();
+
+  /// How long "Send logs" waits for the watch's lines.
+  static const _watchReplyTimeout = Duration(seconds: 10);
+
+  /// "Send logs" on the phone: asks the watch for its lines and waits a few seconds, so they
+  /// go in the same upload. Returns facts for the summary record.
+  static Future<Map<String, Object?>> _askWatchForLogs(String uploadId) async {
+    if (!isSupported) return const {};
+    // Listen before asking: the reply can be quick.
+    final reply = _watchReplies.stream
+        .firstWhere((r) => r['request_id'] == uploadId)
+        .timeout(_watchReplyTimeout);
+    try {
+      final asked =
+          await _channel.invokeMethod<bool>('requestWatchLogs', uploadId) ??
+              false;
+      if (!asked) {
+        reply.ignore();
+        return {'connected': false};
+      }
+      final r = await reply;
+      // The watch sends at most a few items back to back: let the others land too.
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      return {
+        'connected': true,
+        'replied': true,
+        'version': r['version'],
+        'lines': r['lines'],
+      };
+    } on TimeoutException {
+      AppLog.warn('The watch did not answer the log request in time');
+      return {'connected': true, 'replied': false};
+    } finally {
+      _channel.invokeMethod('cancelWatchLogs', uploadId).ignore();
+    }
   }
 
   /// Publishes [lists] of [household]. Cheap to call on every change of the list:
@@ -90,7 +146,7 @@ class WearBridge {
       // No native side (tests, other platforms).
     } on PlatformException catch (e) {
       // Play services missing or no watch paired: not an error for the app.
-      debugPrint('[WearBridge] publish failed: ${e.message}');
+      AppLog.info('Wear: publish failed', fields: {'reason': e.message});
     }
   }
 
@@ -124,7 +180,7 @@ class WearBridge {
     } on MissingPluginException {
       // No native side.
     } on PlatformException catch (e) {
-      debugPrint('[WearBridge] menu publish failed: ${e.message}');
+      AppLog.info('Wear: menu publish failed', fields: {'reason': e.message});
     }
   }
 
@@ -144,8 +200,8 @@ class WearBridge {
       // Offline or the planner is off for this household: keep what the watch has.
       if (plans == null || notes == null) return;
       await publishMenu(household.id, plans, notes, force: true);
-    } catch (e) {
-      debugPrint('[WearBridge] menu refresh failed: $e');
+    } catch (e, st) {
+      AppLog.warn('Wear: menu refresh failed', error: e, stack: st);
     }
   }
 
@@ -165,8 +221,11 @@ class WearBridge {
       } while (_again);
     } on MissingPluginException {
       // No native side.
-    } catch (e) {
-      debugPrint('[WearBridge] processing failed: $e');
+    } on PlatformException catch (e) {
+      // Play services' Wearable API missing (no Wear OS app): not an error for the app.
+      AppLog.info('Wear: actions not read', fields: {'reason': e.message});
+    } catch (e, st) {
+      AppLog.warn('Wear: processing the actions failed', error: e, stack: st);
     } finally {
       _processing = false;
     }
@@ -203,9 +262,10 @@ class WearBridge {
       try {
         await _apply(household, action, prefs);
         done.add(uri);
-      } catch (e) {
+      } catch (e, st) {
         // Keep it: it is tried again at the next nudge or app start.
-        debugPrint('[WearBridge] could not apply action: $e');
+        AppLog.warn('Wear: could not apply an action',
+            error: e, stack: st, fields: {'type': action.type.name});
       }
     }
     if (done.isNotEmpty) {
@@ -263,6 +323,9 @@ class WearBridge {
   @pragma('vm:entry-point')
   static Future<void> headlessMain() async {
     WidgetsFlutterBinding.ensureInitialized();
+    AppLog.installGlobalHandlers();
+    await AppLog.init(source: 'wear_worker');
+    await AppLog.mark('wear_worker');
     try {
       final connected = await BackgroundTask.connectHeadless().timeout(
         const Duration(seconds: 40),
@@ -271,18 +334,22 @@ class WearBridge {
       if (connected) {
         _initialized = true;
         // A nudge while we run just makes the loop go once more.
-        _channel.setMethodCallHandler((call) async {
-          if (call.method == 'actionsChanged') unawaited(processPending());
-        });
+        _channel.setMethodCallHandler(_onNativeCall);
         await processPending(refresh: true)
             .timeout(const Duration(seconds: 40));
       }
-    } catch (e) {
-      debugPrint('[WearBridge] headless run failed: $e');
+    } catch (e, st) {
+      AppLog.warn('Wear: headless run failed', error: e, stack: st);
     } finally {
+      // Reuses this wake-up: sends only when due (or the watch asked), else returns at once.
+      await AppLogUploader.maybeUpload()
+          .timeout(const Duration(seconds: 40))
+          .catchError((_) => const UploadResult(ok: false));
       try {
         await _channel.invokeMethod('headlessDone');
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.warn('Wear: headlessDone failed', error: e, stack: st);
+      }
     }
   }
 }

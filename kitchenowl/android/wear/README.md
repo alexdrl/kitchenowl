@@ -75,6 +75,25 @@ not flash back between the two). Actions the phone never confirms are forgotten 
 The Data Layer only connects apps with the **same package name and signing key**, so the watch app uses
 the phone app's `applicationId` (`com.tombursch.kitchenowl`) and the same `key.properties`.
 
+## Logs (fork only)
+
+The watch keeps its own log (`log/WearLog.kt`: logcat plus ~200 KB of JSON lines in `files/logs`,
+`log/LogRing.kt`) and **never uses the network** for it either. `log/LogRelay.kt` hands the lines to
+the phone as `/kitchenowl/logs/<uuid>` items (at most 90 KB each, only what is new since the last
+hand-over), and only when something is being sent anyway or someone asked:
+
+- **with an action**: every tick, undo, refresh (and so every app start) carries the new lines;
+- **the phone's "Send logs"** writes `/kitchenowl/logs-request/<id>`; the watch answers with a summary
+  line (version, list age, pending actions, menu age) and its new lines, tagged with that id;
+- **the watch's "Send logs"** bar (bottom of the categories screen, and on the "open KitchenOwl on your
+  phone" screen) does the same with `upload_now`, and the phone sends them right away.
+
+Payload: `{"version":1, "created_ms", "request_id"?, "upload_now", "resource": {"service.name":
+"kitchenowl-wear", "service.version", "device.model.name", "os.version", ...}, "lines": "<JSON lines>"}`.
+The phone (`WearLogInbox.kt`) appends the lines to its `files/logs/inbox-kitchenowl-wear.jsonl`,
+deletes the item, and its uploader (`lib/services/app_log_upload.dart`) sends them with its own logs,
+under the watch's resource (`service.name=kitchenowl-wear`).
+
 ## Phone side
 
 `kitchenowl/lib/services/wear_bridge.dart` + `android/app/.../WearBridge.kt`, `WearActionsService.kt`,

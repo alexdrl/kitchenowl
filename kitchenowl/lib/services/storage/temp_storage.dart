@@ -8,6 +8,7 @@ import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/models/tag.dart';
 import 'package:kitchenowl/models/user.dart';
+import 'package:kitchenowl/services/app_log.dart';
 import 'package:path_provider/path_provider.dart' as pathProvider;
 
 class TempStorage {
@@ -88,7 +89,9 @@ class TempStorage {
         final String content = await file.readAsString();
 
         return User.fromJson(json.decode(content));
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('readUser', e, st);
+      }
     }
 
     return null;
@@ -99,7 +102,9 @@ class TempStorage {
       try {
         final file = await _localUserFile;
         if (await file.exists()) await file.delete();
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('clearUser', e, st);
+      }
     }
   }
 
@@ -118,7 +123,9 @@ class TempStorage {
         List list = json.decode(content);
 
         return list.map((e) => ShoppingList.fromJson(e)).toList();
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('readShoppingLists', e, st);
+      }
     }
 
     return null;
@@ -129,7 +136,9 @@ class TempStorage {
       try {
         final file = await _localShoppingListsFile(household);
         if (await file.exists()) await file.delete();
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('clearShoppingLists', e, st);
+      }
     }
   }
 
@@ -154,7 +163,9 @@ class TempStorage {
         return List<Recipe>.from(
           json.decode(content).map((e) => Recipe.fromJson(e)),
         );
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('readRecipes', e, st);
+      }
     }
 
     return null;
@@ -174,7 +185,9 @@ class TempStorage {
       try {
         final file = await _localRecipesFile(household);
         if (await file.exists()) await file.delete();
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('clearRecipes', e, st);
+      }
     }
   }
 
@@ -187,7 +200,9 @@ class TempStorage {
         return List<Category>.from(
           json.decode(content).map((e) => Category.fromJson(e)),
         );
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('readCategories', e, st);
+      }
     }
 
     return null;
@@ -210,7 +225,9 @@ class TempStorage {
       try {
         final file = await _localCategoryFile(household);
         if (await file.exists()) await file.delete();
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('clearCategories', e, st);
+      }
     }
   }
 
@@ -223,7 +240,9 @@ class TempStorage {
         return Set<Tag>.from(
           json.decode(content).map((e) => Tag.fromJson(e)),
         );
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('readTags', e, st);
+      }
     }
 
     return null;
@@ -246,7 +265,9 @@ class TempStorage {
       try {
         final file = await _localTagsFile(household);
         if (await file.exists()) await file.delete();
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('clearTags', e, st);
+      }
     }
   }
 
@@ -259,7 +280,9 @@ class TempStorage {
         return List<Household>.from(
           json.decode(content).map((e) => Household.fromJson(e)),
         );
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('readHouseholds', e, st);
+      }
     }
 
     return null;
@@ -279,7 +302,9 @@ class TempStorage {
       try {
         final file = await _localHouseholdsFile;
         if (await file.exists()) await file.delete();
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('clearHouseholds', e, st);
+      }
     }
   }
 }

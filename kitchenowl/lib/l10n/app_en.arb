@@ -791,6 +791,27 @@
   "search": "Search",
   "searchHint": "Looking for something?",
   "send": "Send",
+  "sendLogs": "Send logs",
+  "sendLogsDone": "Logs sent ({count} lines).",
+  "@sendLogsDone": {
+    "placeholders": {
+      "count": {
+        "example": "120",
+        "type": "int"
+      }
+    }
+  },
+  "sendLogsFailed": "The logs could not be sent: {error}",
+  "@sendLogsFailed": {
+    "placeholders": {
+      "error": {
+        "example": "HTTP 401",
+        "type": "String"
+      }
+    }
+  },
+  "sendLogsId": "Upload id",
+  "sendLogsSending": "Collecting and sending the logs…",
   "server": "Server",
   "serverChange": "Switch server",
   "sessions": "Sessions",

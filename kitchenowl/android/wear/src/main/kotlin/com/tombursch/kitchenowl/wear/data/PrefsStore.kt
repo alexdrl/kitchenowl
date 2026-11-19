@@ -1,6 +1,7 @@
 package com.tombursch.kitchenowl.wear.data
 
 import android.content.Context
+import com.tombursch.kitchenowl.wear.log.WearLog
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 
@@ -48,6 +49,7 @@ class PrefsStore(context: Context) : WatchStore, MenuStorage {
     private inline fun <reified T> read(key: String): T? = try {
         prefs.getString(key, null)?.let { json.decodeFromString<T>(it) }
     } catch (e: Exception) {
+        WearLog.w("Prefs", "Unreadable stored $key", e)
         null
     }
 

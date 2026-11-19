@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:kitchenowl/services/app_log.dart';
 import 'package:kitchenowl/services/transaction.dart';
 import 'package:path_provider/path_provider.dart' as pathProvider;
 
@@ -36,7 +37,9 @@ class TransactionStorage {
         return List<Transaction>.from(
           json.decode(content).map((e) => Transaction.fromJson(e)),
         );
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('readTransactions', e, st);
+      }
     }
 
     return [];
@@ -47,7 +50,9 @@ class TransactionStorage {
       try {
         final file = await _localFile;
         if (await file.exists()) await file.delete();
-      } catch (_) {}
+      } catch (e, st) {
+        AppLog.storageFailure('clearTransactions', e, st);
+      }
     }
   }
 

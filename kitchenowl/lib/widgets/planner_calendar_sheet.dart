@@ -7,6 +7,7 @@ import 'package:kitchenowl/helpers/url_launcher.dart';
 import 'package:kitchenowl/kitchenowl.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
+import 'package:kitchenowl/services/app_log.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart' as ul;
 
@@ -86,7 +87,8 @@ class _PlannerCalendarSheetState extends State<PlannerCalendarSheet> {
   static Future<String?> _localTimezone() async {
     try {
       return await FlutterTimezone.getLocalTimezone();
-    } catch (_) {
+    } catch (e, st) {
+      AppLog.warn('Reading the local time zone failed', error: e, stack: st);
       return null;
     }
   }
@@ -106,7 +108,9 @@ class _PlannerCalendarSheetState extends State<PlannerCalendarSheet> {
         _webcal(feed),
         mode: ul.LaunchMode.externalNonBrowserApplication,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLog.warn('Opening the calendar feed in an app failed',
+          error: e, stack: st);
       opened = false;
     }
     if (!opened && mounted) {
