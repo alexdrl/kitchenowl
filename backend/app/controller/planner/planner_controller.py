@@ -1,10 +1,18 @@
 from app.errors import NotFoundRequest
-from flask import jsonify, Blueprint, request
+from flask import jsonify, Blueprint, request, make_response
 from flask_jwt_extended import jwt_required
 from app import db
 from app.helpers import validate_args, authorize_household
-from app.models import Recipe, RecipeHistory, Planner, PlannerNote
+from app.models import (
+    Household,
+    Recipe,
+    RecipeHistory,
+    Planner,
+    PlannerNote,
+    PlannerCalendar,
+)
 from app.models.planner import MEAL_ANY
+from app.service.planner_calendar import build_calendar, resolve_timezone
 from .schemas import (
     AddPlannedRecipe,
     AddPlannerNote,
@@ -290,3 +298,65 @@ def updatePlannerNote(args, household_id, id):
 def deletePlannerNote(household_id, id):
     _find_note(household_id, id).delete()
     return jsonify({"msg": "DONE"})
+
+
+def _calendar_dict(household_id: int, calendar: PlannerCalendar | None):
+    if not calendar:
+        return {"token": None, "path": None}
+    # Relative to the server root: request.url_root is wrong behind a proxy
+    return {
+        "token": calendar.token,
+        "path": f"/api/household/{household_id}/planner/calendar.ics"
+        f"?token={calendar.token}",
+    }
+
+
+@plannerHousehold.route("/calendar", methods=["GET"])
+@jwt_required()
+@authorize_household()
+def getPlannerCalendar(household_id):
+    return jsonify(
+        _calendar_dict(household_id, PlannerCalendar.find_by_household(household_id))
+    )
+
+
+@plannerHousehold.route("/calendar", methods=["POST"])
+@jwt_required()
+@authorize_household()
+def rotatePlannerCalendar(household_id):
+    """Creates the calendar link, or replaces it: the old link stops working"""
+    return jsonify(_calendar_dict(household_id, PlannerCalendar.rotate(household_id)))
+
+
+@plannerHousehold.route("/calendar", methods=["DELETE"])
+@jwt_required()
+@authorize_household()
+def deletePlannerCalendar(household_id):
+    calendar = PlannerCalendar.find_by_household(household_id)
+    if calendar:
+        calendar.delete()
+    return jsonify({"msg": "DONE"})
+
+
+@plannerHousehold.route("/calendar.ics", methods=["GET"])
+def getPlannerCalendarFeed(household_id):
+    """iCalendar feed for calendar apps, which cannot send the JWT.
+
+    The token in the query string is the only credential. Every failure is
+    a plain 404, so the response does not tell whether the household exists.
+    """
+    calendar = PlannerCalendar.find_by_household(household_id)
+    if not calendar or not calendar.matches(request.args.get("token")):
+        raise NotFoundRequest()
+    household = Household.find_by_id(household_id)
+    if not household:
+        raise NotFoundRequest()
+    zone = resolve_timezone(request.args.get("tz"))
+    response = make_response(build_calendar(household, zone))
+    response.headers["Content-Type"] = "text/calendar; charset=utf-8"
+    response.headers["Content-Disposition"] = 'inline; filename="kitchenowl.ics"'
+    response.headers["Cache-Control"] = "private, max-age=300"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    # Lets ICSx⁵ and others skip unchanged downloads (304)
+    response.add_etag()
+    return response.make_conditional(request)

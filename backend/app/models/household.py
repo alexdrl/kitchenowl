@@ -18,6 +18,8 @@ if TYPE_CHECKING:
         ExpenseCategory,
         User,
         File,
+        PlannerNote,
+        PlannerCalendar,
     )
     from app.helpers.db_model_base import DbModelBase
 
@@ -94,6 +96,15 @@ class Household(Model):
         db.relationship(
             "PlannerNote",
             back_populates="household",
+            cascade="all, delete-orphan",
+        ),
+    )
+    planner_calendar: Mapped["PlannerCalendar | None"] = cast(
+        Mapped["PlannerCalendar | None"],
+        db.relationship(
+            "PlannerCalendar",
+            back_populates="household",
+            uselist=False,
             cascade="all, delete-orphan",
         ),
     )

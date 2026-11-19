@@ -23,9 +23,12 @@ import 'package:kitchenowl/services/transaction_handler.dart';
 import 'package:kitchenowl/services/transactions/planner.dart';
 import 'package:kitchenowl/services/transactions/recipe.dart';
 import 'package:kitchenowl/widgets/planner_add_sheet.dart';
+import 'package:kitchenowl/widgets/planner_calendar_sheet.dart';
 import 'package:kitchenowl/widgets/planner_week_view.dart';
 import 'package:kitchenowl/widgets/sliver_recipe_carousel.dart';
 import 'package:tuple/tuple.dart';
+
+enum _PlannerMenu { breakfast, calendar, phoneCalendar }
 
 String formatDateAsWeekday(
   BuildContext context,
@@ -174,43 +177,52 @@ class _PlannerPageState extends State<PlannerPage> {
                                     : Icons.calendar_view_week_rounded,
                               ),
                             ),
-                            if (weekView || PhoneCalendar.supported)
-                              PopupMenuButton<_PlannerMenu>(
-                                onSelected: (value) async {
-                                  switch (value) {
-                                    case _PlannerMenu.breakfast:
-                                      _reportFailure(
-                                        await context
-                                            .read<HouseholdCubit>()
-                                            .setPlannerBreakfast(
-                                              !showBreakfast,
-                                            ),
-                                      );
-                                    case _PlannerMenu.phoneCalendar:
-                                      await _togglePhoneCalendar();
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  if (weekView)
-                                    CheckedPopupMenuItem(
-                                      value: _PlannerMenu.breakfast,
-                                      checked: showBreakfast,
-                                      child: Text(
-                                        AppLocalizations.of(context)!
-                                            .plannerShowBreakfast,
-                                      ),
+                            PopupMenuButton<_PlannerMenu>(
+                              onSelected: (value) async {
+                                switch (value) {
+                                  case _PlannerMenu.breakfast:
+                                    _reportFailure(
+                                      await context
+                                          .read<HouseholdCubit>()
+                                          .setPlannerBreakfast(!showBreakfast),
+                                    );
+                                  case _PlannerMenu.calendar:
+                                    await showPlannerCalendarSheet(
+                                      context,
+                                      household,
+                                    );
+                                  case _PlannerMenu.phoneCalendar:
+                                    await _togglePhoneCalendar();
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                if (weekView)
+                                  CheckedPopupMenuItem(
+                                    value: _PlannerMenu.breakfast,
+                                    checked: showBreakfast,
+                                    child: Text(
+                                      AppLocalizations.of(context)!
+                                          .plannerShowBreakfast,
                                     ),
-                                  if (PhoneCalendar.supported)
-                                    CheckedPopupMenuItem(
-                                      value: _PlannerMenu.phoneCalendar,
-                                      checked: phoneCalendar,
-                                      child: Text(
-                                        AppLocalizations.of(context)!
-                                            .plannerPhoneCalendar,
-                                      ),
+                                  ),
+                                if (PhoneCalendar.supported)
+                                  CheckedPopupMenuItem(
+                                    value: _PlannerMenu.phoneCalendar,
+                                    checked: phoneCalendar,
+                                    child: Text(
+                                      AppLocalizations.of(context)!
+                                          .plannerPhoneCalendar,
                                     ),
-                                ],
-                              ),
+                                  ),
+                                PopupMenuItem(
+                                  value: _PlannerMenu.calendar,
+                                  child: Text(
+                                    AppLocalizations.of(context)!
+                                        .plannerCalendar,
+                                  ),
+                                ),
+                              ],
+                            ),
                             if (state.recipePlans.isNotEmpty &&
                                 household.defaultShoppingList != null)
                               IconButton(
@@ -876,4 +888,3 @@ class _PlannerPageState extends State<PlannerPage> {
   }
 }
 
-enum _PlannerMenu { breakfast, phoneCalendar }

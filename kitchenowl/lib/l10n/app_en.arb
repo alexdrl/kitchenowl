@@ -921,5 +921,17 @@
   "plannerNoteEatingOut": "Eating out",
   "plannerNoteLeftovers": "Leftovers",
   "plannerNoteTakeaway": "Takeaway",
-  "plannerSaveFailed": "Couldn't save it. Check your connection and try again."
+  "plannerSaveFailed": "Couldn't save it. Check your connection and try again.",
+  "plannerCalendar": "Subscribe to calendar",
+  "plannerCalendarInfo": "Your meal plan as a calendar that keeps itself up to date. Anyone with the link can see it.",
+  "plannerCalendarOpen": "Open in calendar app",
+  "plannerCalendarOpenAndroid": "Opens ICSx⁵, which shows it in Samsung Calendar and Google Calendar",
+  "plannerCalendarGetIcsx5": "Get ICSx⁵",
+  "plannerCalendarGetIcsx5Info": "The app that brings calendar links into Samsung Calendar and Google Calendar",
+  "plannerCalendarGoogle": "Add to Google Calendar",
+  "plannerCalendarGoogleInfo": "Google only refreshes it every few hours",
+  "plannerCalendarCopy": "Copy link",
+  "plannerCalendarNewLink": "New link",
+  "plannerCalendarNewLinkInfo": "The current link stops working in every calendar that uses it",
+  "plannerCalendarOpenFailed": "No app on this device opens calendar links"
 }

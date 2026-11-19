@@ -573,5 +573,17 @@
   "plannerNoteEatingOut": "Comemos fuera",
   "plannerNoteLeftovers": "Sobras",
   "plannerNoteTakeaway": "Pedir a domicilio",
-  "plannerSaveFailed": "No se ha podido guardar. Revisa la conexión y vuelve a intentarlo."
+  "plannerSaveFailed": "No se ha podido guardar. Revisa la conexión y vuelve a intentarlo.",
+  "plannerCalendar": "Suscribirse en el calendario",
+  "plannerCalendarInfo": "Tu menú como un calendario que se mantiene al día solo. Cualquiera con el enlace puede verlo.",
+  "plannerCalendarOpen": "Abrir en la app de calendario",
+  "plannerCalendarOpenAndroid": "Abre ICSx⁵, que lo muestra en Samsung Calendar y Google Calendar",
+  "plannerCalendarGetIcsx5": "Instalar ICSx⁵",
+  "plannerCalendarGetIcsx5Info": "La app que lleva los enlaces de calendario a Samsung Calendar y Google Calendar",
+  "plannerCalendarGoogle": "Añadir a Google Calendar",
+  "plannerCalendarGoogleInfo": "Google solo lo actualiza cada pocas horas",
+  "plannerCalendarCopy": "Copiar enlace",
+  "plannerCalendarNewLink": "Enlace nuevo",
+  "plannerCalendarNewLinkInfo": "El enlace actual deja de funcionar en todos los calendarios que lo usan",
+  "plannerCalendarOpenFailed": "Ninguna app de este dispositivo abre enlaces de calendario"
 }
