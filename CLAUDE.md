@@ -23,6 +23,7 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 | `feat/planner-ics` | not yet (needs `feat/planner-meal`, branched from it) | iCalendar feed of the meal plan (secret link per household) and "Subscribe to calendar" in the planner |
 | `feat/android-calendar-sync` | not yet (branched from `feat/android-widget`) | planned meals in the phone's calendar: an account of our own + a SyncAdapter writing to `CalendarContract`, fed by the widget's menu data |
 | `feat/wear-shopping-list` | not yet | Wear OS watch app (`android/wear/`) to tick off the shopping list; the phone relays everything over the Data Layer, the watch has no network or token |
+| `feat/wear-menu-tile` | not yet (needs `feat/wear-shopping-list` and `feat/planner-meal`) | Wear OS tile and screen with today's and tomorrow's meals, relayed by the phone |
 | `fix/web-base-uri` | TomBursch/kitchenowl#1236 | web API base from `<base href>`, not the page URL (deep links broke) |
 | `fix/zero-yields-scale` | TomBursch/kitchenowl#1237 | recipes with 0 servings no longer throw when scaled |
 | `feat/mcp-item-categories` | TomBursch/kitchenowl#1233 | MCP tools to edit items and manage categories |
