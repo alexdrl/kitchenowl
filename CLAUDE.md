@@ -28,6 +28,7 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 | `fix/zero-yields-scale` | TomBursch/kitchenowl#1237 | recipes with 0 servings no longer throw when scaled |
 | `feat/mcp-item-categories` | TomBursch/kitchenowl#1233 | MCP tools to edit items and manage categories |
 | `fix/delete-category-by-name` | TomBursch/kitchenowl#1234 | delete a category by name |
+| `perf/lazy-imports` | TomBursch/kitchenowl#1243 | backend imports litellm, the NLP parser, recipe-scrapers and pandas on first use (worker about 500 → 170 MB at startup) |
 | `fork/claude-md` | never | this file and `fork/` (fork-only tooling) |
 
 - `deploy` = `origin/main` plus a `--no-ff` merge of every branch above. Every image and APK is built from `deploy`, and nothing is committed on it directly.
