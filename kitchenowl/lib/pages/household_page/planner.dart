@@ -18,6 +18,7 @@ import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/pages/item_selection_page.dart';
 import 'package:kitchenowl/pages/recipe_list_display_page.dart';
+import 'package:kitchenowl/services/phone_calendar.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
 import 'package:kitchenowl/services/transactions/planner.dart';
 import 'package:kitchenowl/services/transactions/recipe.dart';
@@ -27,7 +28,7 @@ import 'package:kitchenowl/widgets/planner_week_view.dart';
 import 'package:kitchenowl/widgets/sliver_recipe_carousel.dart';
 import 'package:tuple/tuple.dart';
 
-enum _PlannerMenu { breakfast, calendar }
+enum _PlannerMenu { breakfast, calendar, phoneCalendar }
 
 String formatDateAsWeekday(
   BuildContext context,
@@ -88,9 +89,15 @@ class _PlannerPageState extends State<PlannerPage> {
   bool weekView = true;
   int weekOffset = 0;
 
+  /// Whether the meals show in the phone's calendar (Android only)
+  bool phoneCalendar = false;
+
   @override
   void initState() {
     super.initState();
+    PhoneCalendar.isEnabled().then((on) {
+      if (mounted) setState(() => phoneCalendar = on);
+    });
   }
 
   @override
@@ -184,6 +191,8 @@ class _PlannerPageState extends State<PlannerPage> {
                                       context,
                                       household,
                                     );
+                                  case _PlannerMenu.phoneCalendar:
+                                    await _togglePhoneCalendar();
                                 }
                               },
                               itemBuilder: (context) => [
@@ -194,6 +203,15 @@ class _PlannerPageState extends State<PlannerPage> {
                                     child: Text(
                                       AppLocalizations.of(context)!
                                           .plannerShowBreakfast,
+                                    ),
+                                  ),
+                                if (PhoneCalendar.supported)
+                                  CheckedPopupMenuItem(
+                                    value: _PlannerMenu.phoneCalendar,
+                                    checked: phoneCalendar,
+                                    child: Text(
+                                      AppLocalizations.of(context)!
+                                          .plannerPhoneCalendar,
                                     ),
                                   ),
                                 PopupMenuItem(
@@ -779,6 +797,23 @@ class _PlannerPageState extends State<PlannerPage> {
 
   /// Text meals and the breakfast setting aren't queued offline: say so
   /// when the server didn't take a change instead of losing it silently.
+  Future<void> _togglePhoneCalendar() async {
+    final wanted = !phoneCalendar;
+    final on = await PhoneCalendar.setEnabled(wanted);
+    if (!mounted) return;
+    setState(() => phoneCalendar = on);
+    if (wanted && !on) {
+      showSnackbar(
+        context: context,
+        width: null,
+        duration: const Duration(seconds: 4),
+        content: Text(
+          AppLocalizations.of(context)!.plannerPhoneCalendarDenied,
+        ),
+      );
+    }
+  }
+
   void _reportFailure(bool ok) {
     // The page's own context: callers may hold one from a closed sheet
     if (ok || !mounted) return;
@@ -852,3 +887,4 @@ class _PlannerPageState extends State<PlannerPage> {
     }
   }
 }
+

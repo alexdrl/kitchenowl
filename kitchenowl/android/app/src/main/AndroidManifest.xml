@@ -4,6 +4,11 @@
     <!--Permissions-->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Planned meals in the phone's calendar (CalendarSync.kt), asked for only when turned on -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
 
     <!--Queries-->
     <queries>
@@ -123,6 +128,30 @@
                     android:pathPrefix="/kitchenowl/actions/" />
             </intent-filter>
         </service>
+        <!-- Planned meals as a read-only calendar of an account of our own (CalendarSync.kt) -->
+        <service
+            android:name=".CalendarAuthenticatorService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accounts.AccountAuthenticator"
+                android:resource="@xml/calendar_authenticator" />
+        </service>
+        <service
+            android:name=".CalendarSyncService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/calendar_sync_adapter" />
+        </service>
+        <receiver
+            android:name=".CalendarSyncTrigger"
+            android:exported="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

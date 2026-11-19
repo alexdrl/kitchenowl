@@ -71,4 +71,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
     implementation("androidx.work:work-runtime:2.12.0")
     implementation("androidx.concurrent:concurrent-futures:1.3.0")
+    // Unit tests of the phone calendar logic (MenuCalendar.kt)
+    testImplementation("junit:junit:4.13.2")
 }

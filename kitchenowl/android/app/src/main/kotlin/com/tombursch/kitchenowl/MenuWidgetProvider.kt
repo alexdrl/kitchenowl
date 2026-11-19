@@ -360,7 +360,7 @@ class MenuWidgetProvider : HomeWidgetProvider() {
 
   companion object {
     /** Same key and format as `MenuWidget.dataKey` / `MenuWidget.dayKey`. */
-    private const val DATA_KEY = "menu"
+    const val DATA_KEY = "menu"
 
     private fun dayKey(day: Calendar) =
         String.format(
