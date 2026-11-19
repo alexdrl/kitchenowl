@@ -4,7 +4,7 @@ import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from queue import Empty, Queue
 from typing import Any
 
@@ -22,6 +22,7 @@ from app.models import (
     HouseholdMember,
     Item,
     Planner,
+    PlannerNote,
     Recipe,
     RecipeItems,
     RecipeTags,
@@ -710,11 +711,99 @@ def _tool_remove_planner_entry(args: dict[str, Any]) -> Any:
     }
 
 
+def _parse_day(value: Any) -> datetime:
+    """A calendar day ("2026-11-19" or an ISO datetime) as the naive UTC
+    midnight that plans and notes are stored with."""
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+    return datetime.combine(parsed.date(), datetime.min.time())
+
+
 def _tool_list_planner(args: dict[str, Any]) -> Any:
     household_id = int(args["household_id"])
     _require_household_access(household_id)
+    since = _parse_day(args["from"]) if args.get("from") else None
+    # "to" is inclusive: everything before the next midnight
+    until = _parse_day(args["to"]) + timedelta(days=1) if args.get("to") else None
+
     plans = Planner.all_from_household(household_id)
-    return {"items": [p.obj_to_full_dict() for p in plans]}
+    if since is not None or until is not None:
+        # Plans without a day (stored on date.min) have no place in a range
+        plans = [
+            p
+            for p in plans
+            if p.cooking_date.year > 1
+            and (since is None or p.cooking_date.replace(tzinfo=None) >= since)
+            and (until is None or p.cooking_date.replace(tzinfo=None) < until)
+        ]
+    notes = [
+        n
+        for n in PlannerNote.all_from_household(household_id, since)
+        if until is None or n.cooking_date < until
+    ]
+    return {
+        "items": [p.obj_to_full_dict() for p in plans],
+        "notes": [n.obj_to_dict() for n in notes],
+    }
+
+
+def _note_text(value: Any) -> str:
+    text = str(value).strip()
+    if not text or len(text) > 256:
+        raise InvalidUsage()
+    return text
+
+
+def _note_meal(value: Any) -> str:
+    meal = str(value)
+    if meal not in MEALS:
+        raise InvalidUsage()
+    return meal
+
+
+def _find_planner_note(household_id: int, note_id: int) -> PlannerNote:
+    note = PlannerNote.find_by_id(note_id)
+    if not note or note.household_id != household_id:
+        raise NotFoundRequest()
+    return note
+
+
+def _tool_add_planner_note(args: dict[str, Any]) -> Any:
+    household_id = int(args["household_id"])
+    _require_household_access(household_id)
+
+    note = PlannerNote()
+    note.household_id = household_id
+    note.cooking_date = _parse_day(args["cooking_date"])
+    note.meal = _note_meal(args.get("meal", MEAL_ANY))
+    note.text = _note_text(args["text"])
+    note.save()
+    return note.obj_to_dict()
+
+
+def _tool_update_planner_note(args: dict[str, Any]) -> Any:
+    household_id = int(args["household_id"])
+    _require_household_access(household_id)
+
+    note = _find_planner_note(household_id, int(args["note_id"]))
+    if "cooking_date" in args:
+        note.cooking_date = _parse_day(args["cooking_date"])
+    if "meal" in args:
+        note.meal = _note_meal(args["meal"])
+    if "text" in args:
+        note.text = _note_text(args["text"])
+    note.save()
+    return note.obj_to_dict()
+
+
+def _tool_remove_planner_note(args: dict[str, Any]) -> Any:
+    household_id = int(args["household_id"])
+    _require_household_access(household_id)
+
+    note = _find_planner_note(household_id, int(args["note_id"]))
+    note.delete()
+    return {"removed": True, "id": note.id, "household_id": household_id}
 
 
 def _tool_scrape_recipe(args: dict[str, Any]) -> Any:
@@ -1002,10 +1091,52 @@ TOOLS: dict[str, tuple[dict[str, Any], Callable[[dict[str, Any]], Any]]] = {
     "list_planner": (
         {
             "type": "object",
-            "properties": {"household_id": {"type": "integer"}},
+            "properties": {
+                "household_id": {"type": "integer"},
+                "from": {"type": "string", "format": "date"},
+                "to": {"type": "string", "format": "date"},
+            },
             "required": ["household_id"],
         },
         _tool_list_planner,
+    ),
+    "add_planner_note": (
+        {
+            "type": "object",
+            "properties": {
+                "household_id": {"type": "integer"},
+                "cooking_date": {"type": "string", "format": "date"},
+                "meal": {"type": "string", "enum": list(MEALS)},
+                "text": {"type": "string", "maxLength": 256},
+            },
+            "required": ["household_id", "cooking_date", "text"],
+        },
+        _tool_add_planner_note,
+    ),
+    "update_planner_note": (
+        {
+            "type": "object",
+            "properties": {
+                "household_id": {"type": "integer"},
+                "note_id": {"type": "integer"},
+                "cooking_date": {"type": "string", "format": "date"},
+                "meal": {"type": "string", "enum": list(MEALS)},
+                "text": {"type": "string", "maxLength": 256},
+            },
+            "required": ["household_id", "note_id"],
+        },
+        _tool_update_planner_note,
+    ),
+    "remove_planner_note": (
+        {
+            "type": "object",
+            "properties": {
+                "household_id": {"type": "integer"},
+                "note_id": {"type": "integer"},
+            },
+            "required": ["household_id", "note_id"],
+        },
+        _tool_remove_planner_note,
     ),
     "add_planner_entry": (
         {
@@ -1048,6 +1179,25 @@ TOOLS: dict[str, tuple[dict[str, Any], Callable[[dict[str, Any]], Any]]] = {
 }
 
 TOOL_DESCRIPTIONS = {
+    "list_planner": (
+        "List the meal plan: recipes planned per day and meal (items) and free-text "
+        'meals (notes, e.g. "Leftovers" or "Dinner out"). Optional from/to '
+        "(YYYY-MM-DD, inclusive) limit both to a date range; without them every "
+        "plan is returned, including recipes planned without a day."
+    ),
+    "add_planner_entry": (
+        "Plan a recipe for a day (cooking_date, YYYY-MM-DD) and meal "
+        "(breakfast, lunch, dinner or any; default any)."
+    ),
+    "add_planner_note": (
+        "Plan a free-text meal (no recipe) for a day and meal, e.g. "
+        '"Leftovers" or "Dinner out". Notes add nothing to the '
+        "shopping list."
+    ),
+    "update_planner_note": (
+        "Change the text, day or meal of a planner note (ids from list_planner)."
+    ),
+    "remove_planner_note": "Delete a planner note (ids from list_planner).",
     "list_recipes": (
         "List household recipes as paginated id and name references. Use "
         "additional_fields for selected bulk data, or get_recipe for one full recipe."
