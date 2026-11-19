@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -86,9 +87,21 @@ class MenuWidgetProvider : HomeWidgetProvider() {
       data: JSONObject?,
   ): RemoteViews {
     val options = manager.getAppWidgetOptions(id)
-    // Portrait size: min width and max height (dp). 0 before the launcher reports it.
-    val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).toFloat()
-    val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).toFloat()
+    // The launcher reports min width/max height for portrait and max width/min height for
+    // landscape (dp; 0 before it reports anything): use the current orientation's, or a
+    // landscape tablet gets rows the widget has no room for.
+    val landscape =
+        context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val width =
+        options.getInt(
+                if (landscape) AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH
+                else AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+            .toFloat()
+    val height =
+        options.getInt(
+                if (landscape) AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT
+                else AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+            .toFloat()
     return when {
       height >= width * TALL_RATIO && width >= TALL_MIN_WIDTH_DP && height >= tallHeightFor(width, 1) -> {
         val rows = (1..4).last { height >= tallHeightFor(width, it) }
@@ -102,12 +115,13 @@ class MenuWidgetProvider : HomeWidgetProvider() {
   }
 
   /**
-   * Height (dp) the tall layout needs for [rows] next days. Measured on a Pixel 7 emulator
-   * at 2 columns (~190dp wide): today's card with two-line meals is about 200dp, the rest
-   * about 65dp, each next day about 68dp. From ~280dp wide the meals fit on one line and
-   * the card is ~50dp shorter. Rows that would not fit whole are hidden, not cut in half.
+   * Height (dp) the tall layout needs for [rows] next days, measured on emulators with
+   * ~10dp to spare: each next day takes about 69dp; the rest (padding, "next days"
+   * header, today's card) about 265dp at 2 phone columns (~190dp wide, meals on two
+   * lines) and 245dp from ~280dp wide (meals on one line). Rows that would not fit whole
+   * are hidden, never cut in half.
    */
-  private fun tallHeightFor(width: Float, rows: Int) = (if (width >= 280f) 215f else 265f) + 68f * rows
+  private fun tallHeightFor(width: Float, rows: Int) = (if (width >= 280f) 255f else 275f) + 69f * rows
 
   /**
    * Today's card plus the next [count] days (lunch and dinner), for the wide and tall shapes;
