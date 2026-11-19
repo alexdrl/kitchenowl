@@ -19,7 +19,8 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 | Branch | Upstream PR | What |
 | --- | --- | --- |
 | `feat/planner-meal` | not yet | meals (breakfast/lunch/dinner) in the planner, weekly view, text meals |
-| `feat/android-widget` | not yet (needs `feat/planner-meal`, branched from it) | Android home screen widget: today's menu, or the current week when made big (tablets) |
+| `feat/android-widget` | not yet (needs `feat/planner-meal`, branched from it) | Android home screen widget: today's menu, or the current week when made big (tablets); refreshed by the background fetch task |
+| `feat/planner-ics` | not yet (needs `feat/planner-meal`, branched from it) | iCalendar feed of the meal plan (secret link per household) and "Subscribe to calendar" in the planner |
 | `fix/web-base-uri` | TomBursch/kitchenowl#1236 | web API base from `<base href>`, not the page URL (deep links broke) |
 | `fix/zero-yields-scale` | TomBursch/kitchenowl#1237 | recipes with 0 servings no longer throw when scaled |
 | `feat/mcp-item-categories` | TomBursch/kitchenowl#1233 | MCP tools to edit items and manage categories |
