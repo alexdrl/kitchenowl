@@ -525,3 +525,87 @@ def test_mcp_planner_rejects_invalid_meal(
     for tool in ('add_planner_entry', 'remove_planner_entry'):
         body = _call(user_client_with_household, tool, base)
         assert 'error' in body
+
+
+def test_mcp_planner_notes(user_client_with_household, household_id):
+    body = _call(
+        user_client_with_household,
+        'add_planner_note',
+        {
+            'household_id': household_id,
+            'cooking_date': '2026-11-19',
+            'meal': 'dinner',
+            'text': '  Sobras  ',
+        },
+    )
+    note = body['result']['structuredContent']
+    assert note['text'] == 'Sobras'
+    assert note['meal'] == 'dinner'
+
+    body = _call(
+        user_client_with_household,
+        'update_planner_note',
+        {'household_id': household_id, 'note_id': note['id'], 'text': 'Cena fuera'},
+    )
+    assert body['result']['structuredContent']['text'] == 'Cena fuera'
+
+    body = _call(user_client_with_household, 'list_planner', {'household_id': household_id})
+    notes = body['result']['structuredContent']['notes']
+    assert [(n['id'], n['text'], n['meal']) for n in notes] == [
+        (note['id'], 'Cena fuera', 'dinner')
+    ]
+
+    body = _call(
+        user_client_with_household,
+        'remove_planner_note',
+        {'household_id': household_id, 'note_id': note['id']},
+    )
+    assert body['result']['structuredContent']['removed'] is True
+    body = _call(user_client_with_household, 'list_planner', {'household_id': household_id})
+    assert body['result']['structuredContent']['notes'] == []
+
+
+def test_mcp_planner_note_rejects_bad_input(user_client_with_household, household_id):
+    base = {'household_id': household_id, 'cooking_date': '2026-11-19'}
+    for args in (base | {'text': '   '}, base | {'text': 'x', 'meal': 'brunch'}):
+        assert 'error' in _call(user_client_with_household, 'add_planner_note', args)
+    body = _call(
+        user_client_with_household,
+        'remove_planner_note',
+        {'household_id': household_id, 'note_id': 9999},
+    )
+    assert 'error' in body
+
+
+def test_mcp_list_planner_date_range(
+    user_client_with_household, household_id, recipe_with_items
+):
+    for day in ('2026-11-16', '2026-11-19', '2026-11-23'):
+        _call(
+            user_client_with_household,
+            'add_planner_entry',
+            {
+                'household_id': household_id,
+                'recipe_id': recipe_with_items,
+                'cooking_date': day,
+                'meal': 'lunch',
+            },
+        )
+        _call(
+            user_client_with_household,
+            'add_planner_note',
+            {'household_id': household_id, 'cooking_date': day, 'text': day},
+        )
+
+    body = _call(
+        user_client_with_household,
+        'list_planner',
+        {'household_id': household_id, 'from': '2026-11-17', 'to': '2026-11-23'},
+    )
+    result = body['result']['structuredContent']
+    # Dates come back as ms since the epoch (UTC midnight)
+    day_ms = [
+        int(datetime(2026, 11, d, tzinfo=UTC).timestamp() * 1000) for d in (19, 23)
+    ]
+    assert [i['cooking_date'] for i in result['items']] == day_ms
+    assert [n['text'] for n in result['notes']] == ['2026-11-19', '2026-11-23']
