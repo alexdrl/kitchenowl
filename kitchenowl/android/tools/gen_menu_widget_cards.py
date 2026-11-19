@@ -6,8 +6,9 @@ Generates the two "today card + next days" layouts of the menu widget:
 
 The today card reuses the ids of menu_widget.xml (date, meal rows, message,
 updated), so MenuWidgetProvider.kt fills all three with the same code. The
-next-day rows are menu_widget_next<i>_{day,lunch,dinner}. Only classes
-RemoteViews allows (no plain View).
+next-day rows are menu_widget_next<i> (+ _divider, _day, _lunch, _dinner);
+the provider hides the ones the widget's height has no room for. Only
+classes RemoteViews allows (no plain View).
 """
 import os
 import sys
@@ -149,6 +150,7 @@ def next_rows(indent, count, side_by_side):
     for i in range(count):
         out += [
             f'{p}<FrameLayout',
+            f'{p}    android:id="@+id/menu_widget_next{i}_divider"',
             f'{p}    android:layout_width="match_parent"',
             f'{p}    android:layout_height="1dp"',
             f'{p}    android:layout_marginTop="5dp"',

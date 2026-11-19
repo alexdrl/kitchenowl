@@ -11,7 +11,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.format.DateFormat
-import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
@@ -44,7 +43,7 @@ class MenuWidgetProvider : HomeWidgetProvider() {
     scheduleMidnightUpdate(context)
   }
 
-  /** Below Android 12 the layout is picked here, from the size the launcher reports. */
+  /** Called on every resize: the layout depends on the widget's shape (viewsFor). */
   override fun onAppWidgetOptionsChanged(
       context: Context,
       appWidgetManager: AppWidgetManager,
@@ -71,49 +70,55 @@ class MenuWidgetProvider : HomeWidgetProvider() {
       }
 
   /**
-   * One layout per shape: today (small), today + next 3 days side by side (wide and short),
-   * today + next 4 days below (narrow and tall), the current week table (big both ways).
+   * The layout follows the widget's shape, not just its size: clearly tall → today + next
+   * days below; clearly wide → today + next 3 days beside it; big and roughly square → the
+   * current week table; anything smaller → today only.
+   *
+   * Not Android 12's size-mapped RemoteViews: the system picks the mapped layout whose
+   * minimum size is closest to the widget's, which put the week table on a 3x4 tablet
+   * widget instead of the tall layout. The launcher calls onAppWidgetOptionsChanged on
+   * every resize, so picking here works the same on every version.
    */
-  private fun layoutsBySize(context: Context, data: JSONObject?): List<Pair<SizeF, () -> RemoteViews>> =
-      listOf(
-          SizeF(110f, 70f) to { render(context, data, R.layout.menu_widget, "EEEEdMMMM") },
-          SizeF(WIDE_MIN_WIDTH_DP, WIDE_MIN_HEIGHT_DP) to { renderWithNext(context, data, R.layout.menu_widget_wide, 3, "EEEd") },
-          SizeF(TALL_MIN_WIDTH_DP, TALL_MIN_HEIGHT_DP) to { renderWithNext(context, data, R.layout.menu_widget_tall, 4, "EEEEd") },
-          SizeF(WEEK_MIN_WIDTH_DP, WEEK_MIN_HEIGHT_DP) to { renderWeek(context, data) },
-      )
-
   private fun viewsFor(
       context: Context,
       manager: AppWidgetManager,
       id: Int,
       data: JSONObject?,
   ): RemoteViews {
-    val layouts = layoutsBySize(context, data)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      // The system picks, among the layouts that fit, the one closest to the widget's
-      // size, also while resizing.
-      return RemoteViews(layouts.associate { (size, build) -> size to build() })
-    }
     val options = manager.getAppWidgetOptions(id)
-    // Portrait size: min width and max height. Same rule as Android 12+: of the
-    // layouts that fit, the closest (squared distance) to that size.
+    // Portrait size: min width and max height (dp). 0 before the launcher reports it.
     val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).toFloat()
     val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).toFloat()
-    val best =
-        layouts
-            .filter { (size, _) -> size.width <= width && size.height <= height }
-            .minByOrNull { (size, _) ->
-              (width - size.width) * (width - size.width) + (height - size.height) * (height - size.height)
-            } ?: layouts.first()
-    return best.second()
+    return when {
+      height >= width * TALL_RATIO && width >= TALL_MIN_WIDTH_DP && height >= tallHeightFor(width, 1) -> {
+        val rows = (1..4).last { height >= tallHeightFor(width, it) }
+        renderWithNext(context, data, R.layout.menu_widget_tall, rows, 4, "EEEEd")
+      }
+      width >= height * WIDE_RATIO && width >= WIDE_MIN_WIDTH_DP && height >= WIDE_MIN_HEIGHT_DP ->
+          renderWithNext(context, data, R.layout.menu_widget_wide, 3, 3, "EEEd")
+      width >= WEEK_MIN_WIDTH_DP && height >= WEEK_MIN_HEIGHT_DP -> renderWeek(context, data)
+      else -> render(context, data, R.layout.menu_widget, "EEEEdMMMM")
+    }
   }
 
-  /** Today's card plus the next [count] days (lunch and dinner), for the wide and tall shapes. */
+  /**
+   * Height (dp) the tall layout needs for [rows] next days. Measured on a Pixel 7 emulator
+   * at 2 columns (~190dp wide): today's card with two-line meals is about 200dp, the rest
+   * about 65dp, each next day about 68dp. From ~280dp wide the meals fit on one line and
+   * the card is ~50dp shorter. Rows that would not fit whole are hidden, not cut in half.
+   */
+  private fun tallHeightFor(width: Float, rows: Int) = (if (width >= 280f) 215f else 265f) + 68f * rows
+
+  /**
+   * Today's card plus the next [count] days (lunch and dinner), for the wide and tall shapes;
+   * the layout has [capacity] rows, the ones past [count] are hidden.
+   */
   private fun renderWithNext(
       context: Context,
       data: JSONObject?,
       layout: Int,
       count: Int,
+      capacity: Int,
       dayPattern: String,
   ): RemoteViews {
     val views = render(context, data, layout, "EEEEd")
@@ -121,6 +126,11 @@ class MenuWidgetProvider : HomeWidgetProvider() {
     if (days == null) {
       views.setViewVisibility(R.id.menu_widget_next, View.GONE)
       return views
+    }
+    for (i in 0 until capacity) {
+      val visibility = if (i < count) View.VISIBLE else View.GONE
+      views.setViewVisibility(NEXT_ROWS[i], visibility)
+      views.setViewVisibility(NEXT_DIVIDERS[i], visibility)
     }
     val pattern = DateFormat.getBestDateTimePattern(Locale.getDefault(), dayPattern)
     val day = Calendar.getInstance()
@@ -336,17 +346,27 @@ class MenuWidgetProvider : HomeWidgetProvider() {
             "any" to R.string.menu_widget_other,
         )
 
-    // Minimum sizes (dp) of each shape; of those that fit, the one closest to the
-    // widget's size wins (viewsFor): 5x2 on the tablet is wide, 4x4 on the phone the week.
-    /** Wide and short, e.g. 5x2 on the tablet: today + next 3 days side by side. */
-    private const val WIDE_MIN_WIDTH_DP = 300f
-    private const val WIDE_MIN_HEIGHT_DP = 110f
-    /** Narrow and tall, e.g. 2x4: today + next 4 days below. */
+    // Shapes (viewsFor). Tall: height at least 1.2x the width (2x3 on the phone, 3x4 on
+    // the tablet). Wide: width at least 1.4x the height (4-6x2 on the tablet). Big and
+    // roughly square (4x4 on the phone): the week table.
+    private const val TALL_RATIO = 1.2f
     private const val TALL_MIN_WIDTH_DP = 150f
-    private const val TALL_MIN_HEIGHT_DP = 300f
-    /** Big both ways, e.g. 4x4 on the phone: the current week table. */
+    private const val WIDE_RATIO = 1.4f
+    /** Below 400dp (3 tablet columns) both halves got cut to a few words each. */
+    private const val WIDE_MIN_WIDTH_DP = 400f
+    /** Room for its 3 next days, which are not hidden one by one. */
+    private const val WIDE_MIN_HEIGHT_DP = 210f
     private const val WEEK_MIN_WIDTH_DP = 300f
     private const val WEEK_MIN_HEIGHT_DP = 340f
+
+    private val NEXT_ROWS =
+        intArrayOf(
+            R.id.menu_widget_next0, R.id.menu_widget_next1,
+            R.id.menu_widget_next2, R.id.menu_widget_next3)
+    private val NEXT_DIVIDERS =
+        intArrayOf(
+            R.id.menu_widget_next0_divider, R.id.menu_widget_next1_divider,
+            R.id.menu_widget_next2_divider, R.id.menu_widget_next3_divider)
 
     // Ids of the generated menu_widget_wide.xml / menu_widget_tall.xml (android/tools/
     // gen_menu_widget_cards.py): the wide one has rows 0-2, the tall one 0-3.
