@@ -42,3 +42,17 @@ def test_get_all_households(user_client_with_household, household_name):
     data = response.get_json()
     assert len(data) == 1
     assert data[0]["name"] == household_name
+
+
+def test_household_planner_breakfast_toggle(user_client_with_household, household_id):
+    response = user_client_with_household.get(f"/api/household/{household_id}")
+    assert response.status_code == 200
+    assert response.get_json()["planner_breakfast"] is True
+
+    response = user_client_with_household.post(
+        f"/api/household/{household_id}", json={"planner_breakfast": False}
+    )
+    assert response.status_code == 200
+
+    response = user_client_with_household.get(f"/api/household/{household_id}")
+    assert response.get_json()["planner_breakfast"] is False

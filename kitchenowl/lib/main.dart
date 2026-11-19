@@ -9,6 +9,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:kitchenowl/services/app_log.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
 import 'package:kitchenowl/services/background_task.dart';
+import 'package:kitchenowl/services/wear_bridge.dart';
 import 'app.dart';
 
 Future main() async {
@@ -18,6 +19,7 @@ Future main() async {
   usePathUrlStrategy();
   if (!kIsWeb) await findSystemLocale(); //BUG in package for web?
   runApp(App());
+  WearBridge.init();
 
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);

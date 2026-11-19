@@ -90,6 +90,18 @@
             android:value="2" />
         <meta-data android:name="io.flutter.network-policy"
             android:resource="@xml/network_security_config" />
+        <!-- Wear OS: wakes the app when the watch writes an action (see WearBridge.kt) -->
+        <service
+            android:name=".WearActionsService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/kitchenowl/actions/" />
+            </intent-filter>
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

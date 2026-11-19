@@ -64,3 +64,11 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Wear OS bridge (WearBridge.kt, ../wear): the Wearable Data Layer, and WorkManager to run
+    // the headless engine that applies the watch's actions while the app is closed.
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    implementation("androidx.work:work-runtime:2.12.0")
+    implementation("androidx.concurrent:concurrent-futures:1.3.0")
+}

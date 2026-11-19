@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KitchenOwl</string>
+    <string name="tile_label">Shopping list</string>
+
+    <string name="no_snapshot_title">Open KitchenOwl on your phone</string>
+    <string name="no_snapshot_body">The list appears here as soon as your phone sends it.</string>
+    <string name="tile_no_snapshot">Open KitchenOwl on your phone</string>
+
+    <string name="list_empty">Nothing to buy</string>
+    <string name="uncategorized">Uncategorized</string>
+    <string name="refresh">Refresh</string>
+    <string name="refreshing">Asking the phone…</string>
+    <string name="change_list">Change list</string>
+    <string name="pick_list">Shopping lists</string>
+    <string name="items_count">%d items</string>
+    <string name="undo_item">Undo: %s</string>
+    <string name="switching_list">Switching list…</string>
+
+    <string name="updated_hours">Updated %d h ago</string>
+    <string name="updated_days">Updated %d d ago</string>
+    <string name="not_confirmed">%d not confirmed yet</string>
+    <string name="item_not_confirmed">not confirmed</string>
+
+    <string name="to_buy">to buy</string>
+    <string name="back_to_categories">Categories</string>
+    <string name="next_category">Next: %s</string>
+    <string name="category_done">%s done</string>
+    <string name="to_buy_total">%d left to buy</string>
+    <string name="undo">Undo</string>
+    <string name="all_bought">All bought</string>
+
+    <string name="tile_all_done">All done</string>
+    <plurals name="tile_items_left">
+        <item quantity="one">%d item left</item>
+        <item quantity="other">%d items left</item>
+    </plurals>
+
+    <string name="menu_tile_label">Menu</string>
+    <string name="menu_title">Menu</string>
+    <string name="meal_breakfast">Breakfast</string>
+    <string name="meal_lunch">Lunch</string>
+    <string name="meal_dinner">Dinner</string>
+    <string name="meal_other">Other</string>
+    <string name="day_today">Today</string>
+    <string name="day_tomorrow">Tomorrow</string>
+    <string name="menu_nothing">Nothing planned</string>
+    <string name="menu_empty_title">No menu yet</string>
+    <string name="menu_empty_body">Plan meals in KitchenOwl on your phone.</string>
+    <string name="menu_no_today">No menu for today</string>
+    <string name="now_suffix">now</string>
+</resources>

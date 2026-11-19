@@ -1,3 +1,4 @@
+import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -112,14 +113,18 @@ class RecipeCubit extends Cubit<RecipeState> {
     }
   }
 
-  Future<void> addRecipeToPlanner(
-      {DateTime? cookingDate, bool updateOnAdd = false}) async {
+  Future<void> addRecipeToPlanner({
+    DateTime? cookingDate,
+    Meal meal = Meal.any,
+    bool updateOnAdd = false,
+  }) async {
     if (state.household != null) {
       await _transactionHandler.runTransaction(TransactionPlannerAddRecipe(
         household: state.household!,
         recipePlan: RecipePlan(
           recipe: state.recipe,
           cookingDate: cookingDate,
+          meal: meal,
           yields: state.selectedYields != null &&
                   state.recipe.yields != state.selectedYields &&
                   state.selectedYields! > 0

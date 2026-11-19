@@ -21,6 +21,12 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "9.3.1" apply false
     id("org.jetbrains.kotlin.android") version "2.4.20" apply false
+    // Only used by the Wear OS module (:wear)
+    id("org.jetbrains.kotlin.plugin.compose") version "2.4.20" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.20" apply false
 }
 
 include(":app")
+// Wear OS companion app. `flutter build apk` only runs :app tasks, so this module is
+// configured but never built by it. See wear/README.md.
+include(":wear")

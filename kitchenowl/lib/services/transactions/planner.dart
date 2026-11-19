@@ -1,3 +1,4 @@
+import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/planner.dart';
 import 'package:kitchenowl/models/recipe.dart';
@@ -25,10 +26,16 @@ class TransactionPlannerGetPlannedRecipes
     recipes.retainWhere((e) => e.isPlanned);
 
     return recipes
-        .expand((r) => r.plannedCookingDates.isNotEmpty
-            ? r.plannedCookingDates.map((cookingDate) =>
-                RecipePlan(recipe: r, cookingDate: cookingDate))
-            : [RecipePlan(recipe: r)])
+        .expand((r) => r.plannedSlots.isNotEmpty
+            ? r.plannedSlots.map((slot) => RecipePlan(
+                  recipe: r,
+                  cookingDate: slot.$1,
+                  meal: Meal.parse(slot.$2),
+                ))
+            : r.plannedCookingDates.isNotEmpty
+                ? r.plannedCookingDates.map((cookingDate) =>
+                    RecipePlan(recipe: r, cookingDate: cookingDate))
+                : [RecipePlan(recipe: r)])
         .toList();
   }
 
@@ -92,9 +99,15 @@ class TransactionPlannerAddRecipe extends Transaction<bool> {
   final Household household;
   final RecipePlan recipePlan;
 
+  /// Set for a move: the slot the plan leaves (date null = no day)
+  final DateTime? moveFromDate;
+  final Meal? moveFromMeal;
+
   TransactionPlannerAddRecipe({
     required this.household,
     required this.recipePlan,
+    this.moveFromDate,
+    this.moveFromMeal,
     DateTime? timestamp,
   }) : super.internal(
           timestamp ?? DateTime.now(),
@@ -108,6 +121,14 @@ class TransactionPlannerAddRecipe extends Transaction<bool> {
       TransactionPlannerAddRecipe(
         household: Household.fromJson(map['household']),
         recipePlan: RecipePlan.fromJson(map['recipePlan']),
+        moveFromDate: map['moveFromDate'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(
+                map['moveFromDate'],
+                isUtc: true,
+              )
+            : null,
+        moveFromMeal:
+            map['moveFromMeal'] != null ? Meal.parse(map['moveFromMeal']) : null,
         timestamp: timestamp,
       );
 
@@ -119,6 +140,9 @@ class TransactionPlannerAddRecipe extends Transaction<bool> {
     ..addAll({
       "household": household.toJsonWithId(),
       "recipePlan": recipePlan.toJsonWithId(),
+      if (moveFromDate != null)
+        "moveFromDate": moveFromDate!.millisecondsSinceEpoch,
+      if (moveFromMeal != null) "moveFromMeal": moveFromMeal!.name,
     });
 
   @override
@@ -128,7 +152,12 @@ class TransactionPlannerAddRecipe extends Transaction<bool> {
 
   @override
   Future<bool?> runOnline() {
-    return ApiService.getInstance().addPlannedRecipe(household, recipePlan);
+    return ApiService.getInstance().addPlannedRecipe(
+      household,
+      recipePlan,
+      moveFromDate: moveFromDate,
+      moveFromMeal: moveFromMeal,
+    );
   }
 }
 
@@ -136,11 +165,13 @@ class TransactionPlannerRemoveRecipe extends Transaction<bool> {
   final Household household;
   final Recipe recipe;
   final DateTime? cookingDate;
+  final Meal? meal;
 
   TransactionPlannerRemoveRecipe({
     required this.household,
     required this.recipe,
     this.cookingDate,
+    this.meal,
     DateTime? timestamp,
   }) : super.internal(
           timestamp ?? DateTime.now(),
@@ -155,7 +186,13 @@ class TransactionPlannerRemoveRecipe extends Transaction<bool> {
         household: Household.fromJson(map['household']),
         recipe: Recipe.fromJson(map['recipe']),
         timestamp: timestamp,
-        cookingDate: map['cooking_date'],
+        cookingDate: map['cooking_date'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(
+                map['cooking_date'],
+                isUtc: true,
+              )
+            : null,
+        meal: map['meal'] != null ? Meal.parse(map['meal']) : null,
       );
 
   @override
@@ -167,6 +204,7 @@ class TransactionPlannerRemoveRecipe extends Transaction<bool> {
       "household": household.toJsonWithId(),
       "recipe": recipe.toJsonWithId(),
       "cooking_date": cookingDate?.millisecondsSinceEpoch,
+      if (meal != null) "meal": meal!.name,
     });
 
   @override
@@ -177,7 +215,7 @@ class TransactionPlannerRemoveRecipe extends Transaction<bool> {
   @override
   Future<bool?> runOnline() {
     return ApiService.getInstance()
-        .removePlannedRecipe(household, recipe, cookingDate);
+        .removePlannedRecipe(household, recipe, cookingDate, meal);
   }
 }
 

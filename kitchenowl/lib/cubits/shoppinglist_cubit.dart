@@ -14,6 +14,7 @@ import 'package:kitchenowl/services/storage/storage.dart';
 import 'package:kitchenowl/services/transactions/category.dart';
 import 'package:kitchenowl/services/transactions/shoppinglist.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
+import 'package:kitchenowl/services/wear_bridge.dart';
 
 class ShoppinglistCubit extends Cubit<ShoppinglistCubitState> {
   final Household household;
@@ -21,6 +22,7 @@ class ShoppinglistCubit extends Cubit<ShoppinglistCubitState> {
   String? _refreshCurrentQuery;
   Timer? _periodicRefreshTimer;
   Connection? _lastConnectionState;
+  Timer? _wearPublishTimer;
 
   String get query => (state is SearchShoppinglistCubitState)
       ? (state as SearchShoppinglistCubitState).query
@@ -58,6 +60,28 @@ class ShoppinglistCubit extends Cubit<ShoppinglistCubitState> {
     );
   }
 
+  /// Every change of the lists (load, socket events, local add/remove) also goes to the
+  /// Wear OS watch, a moment later so that a burst of changes is sent once.
+  @override
+  void onChange(Change<ShoppinglistCubitState> change) {
+    super.onChange(change);
+    if (!WearBridge.isSupported) return;
+    final next = change.nextState;
+    if (next.shoppinglists.isEmpty ||
+        next.shoppinglists == change.currentState.shoppinglists) {
+      return;
+    }
+    _wearPublishTimer?.cancel();
+    _wearPublishTimer = Timer(const Duration(milliseconds: 1500), () {
+      final current = state;
+      WearBridge.publish(
+        household.id,
+        current.shoppinglists.values,
+        phoneListId: current.selectedShoppinglistId,
+      );
+    });
+  }
+
   void _onConnectionChange() {
     final current = ApiService.getInstance().connectionStatus;
     if (current == Connection.authenticated &&
@@ -70,6 +94,7 @@ class ShoppinglistCubit extends Cubit<ShoppinglistCubitState> {
   @override
   Future<void> close() async {
     _periodicRefreshTimer?.cancel();
+    _wearPublishTimer?.cancel();
     ApiService.getInstance().removeListener(_onConnectionChange);
     ApiService.getInstance().offShoppinglistAdd(onShoppinglistAdd);
     ApiService.getInstance().offShoppinglistDelete(onShoppinglistDelete);

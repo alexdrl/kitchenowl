@@ -1,6 +1,7 @@
 import 'package:kitchenowl/config.dart';
 import 'package:kitchenowl/cubits/auth_cubit.dart';
 import 'package:kitchenowl/models/household.dart';
+import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
 import 'package:kitchenowl/services/app_log.dart';
 import 'package:kitchenowl/services/app_log_upload.dart';
@@ -52,10 +53,23 @@ class BackgroundTask {
   }
 
   static Future<void> runHeadless() async {
+    if (!await connectHeadless()) return;
+
+    await Future.wait([
+      TransactionHandler.getInstance().runOpenTransactions(),
+      _refreshShoppingLists(PreferenceStorage.getInstance()),
+    ]);
+  }
+
+  /// Connects [ApiService] without a UI: server URL from the preferences, refresh token
+  /// from the secure storage, and the handlers that keep a rotated token. Shared by every
+  /// headless entry point (background fetch, Wear OS actions).
+  /// Returns false when offline mode is forced or there is no valid login.
+  static Future<bool> connectHeadless() async {
     final preferenceStorage = PreferenceStorage.getInstance();
     final forcedOfflineMode =
         await preferenceStorage.readBool(key: 'forcedOfflineMode') ?? false;
-    if (forcedOfflineMode) return;
+    if (forcedOfflineMode) return false;
 
     Config.packageInfo = PackageInfo.fromPlatform();
     final url =
@@ -72,13 +86,13 @@ class BackgroundTask {
     });
 
     await ApiService.connectTo(url, refreshToken: token);
-    if (!ApiService.getInstance().isAuthenticated()) return;
 
-    await Future.wait([
-      TransactionHandler.getInstance().runOpenTransactions(),
-      _refreshShoppingLists(preferenceStorage),
-    ]);
+    return ApiService.getInstance().isAuthenticated();
   }
+
+  /// Fetches the lists of [householdId] and stores them in the cache; null when offline.
+  static Future<List<ShoppingList>?> refreshShoppingLists(int householdId) =>
+      _fetchShoppingLists(PreferenceStorage.getInstance(), householdId);
 
   static Future<void> _refreshShoppingLists(
     PreferenceStorage preferenceStorage,
@@ -86,6 +100,15 @@ class BackgroundTask {
     final householdId = await preferenceStorage.readInt(key: 'lastHouseholdId');
     if (householdId == null) return;
 
+    // Not published to the watch from here: this engine (created by the
+    // background_fetch plugin) has no Wear channel. WearRefreshWorker does that.
+    await _fetchShoppingLists(preferenceStorage, householdId);
+  }
+
+  static Future<List<ShoppingList>?> _fetchShoppingLists(
+    PreferenceStorage preferenceStorage,
+    int householdId,
+  ) async {
     final recentItemsCount =
         await preferenceStorage.readInt(key: 'recentItemsCount') ?? 9;
     final household = Household(id: householdId);
@@ -97,5 +120,7 @@ class BackgroundTask {
       await MemStorage.getInstance()
           .writeShoppingLists(household, shoppingLists);
     }
+
+    return shoppingLists;
   }
 }
