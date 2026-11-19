@@ -13,6 +13,7 @@ class AddHousehold(Schema):
     currency = fields.String()
     planner_feature = fields.Boolean()
     expenses_feature = fields.Boolean()
+    planner_breakfast = fields.Boolean()
     view_ordering = fields.List(fields.String)
     member = fields.List(fields.Integer)
 
@@ -29,6 +30,7 @@ class UpdateHousehold(Schema):
     currency = fields.String()
     planner_feature = fields.Boolean()
     expenses_feature = fields.Boolean()
+    planner_breakfast = fields.Boolean()
     view_ordering = fields.List(fields.String)
 
 

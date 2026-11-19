@@ -1,3 +1,4 @@
+import 'package:kitchenowl/widgets/planner_add_sheet.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fraction/fraction.dart';
@@ -422,23 +423,17 @@ class _RecipePageState extends State<RecipePage> {
                             LoadingElevatedButton(
                               child: const Icon(Icons.calendar_month_rounded),
                               onPressed: () async {
-                                final DateTime? cookingDate =
-                                    await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime.now()
-                                      .add(const Duration(days: 400)),
+                                final slot = await showPlannerAddSheet(
+                                  context,
+                                  recipeName: state.recipe.name,
+                                  showBreakfast: state
+                                          .household?.plannerBreakfast ??
+                                      true,
                                 );
-                                if (cookingDate != null) {
+                                if (slot != null) {
                                   await cubit.addRecipeToPlanner(
-                                    cookingDate:
-                                        cookingDate.millisecondsSinceEpoch > 0
-                                            ? DateTime.utc(
-                                                cookingDate.year,
-                                                cookingDate.month,
-                                                cookingDate.day)
-                                            : null,
+                                    cookingDate: slot.cookingDate,
+                                    meal: slot.meal,
                                     updateOnAdd: widget.updateOnPlanningEdit,
                                   );
                                 }

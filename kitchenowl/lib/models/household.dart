@@ -14,6 +14,7 @@ class Household extends Model {
   final String? currency;
   final bool? featurePlanner;
   final bool? featureExpenses;
+  final bool? plannerBreakfast;
   final List<ViewsEnum>? viewOrdering;
   final List<Member>? member;
   final ShoppingList? defaultShoppingList;
@@ -30,6 +31,7 @@ class Household extends Model {
     this.currency,
     this.featurePlanner,
     this.featureExpenses,
+    this.plannerBreakfast,
     this.viewOrdering,
     this.member,
     this.defaultShoppingList,
@@ -60,6 +62,8 @@ class Household extends Model {
       currency: map['currency'],
       featurePlanner: map['planner_feature'] ?? false,
       featureExpenses: map['expenses_feature'] ?? false,
+      // null = not sent (older server): readers default to showing breakfast
+      plannerBreakfast: map['planner_breakfast'],
       description: map['description'],
       link: map['link'],
       verified: map['verified'] ?? false,
@@ -81,6 +85,7 @@ class Household extends Model {
     bool? verified,
     bool? featurePlanner,
     bool? featureExpenses,
+    bool? plannerBreakfast,
     List<ViewsEnum>? viewOrdering,
   }) =>
       Household(
@@ -92,6 +97,7 @@ class Household extends Model {
         currency: currency ?? this.currency,
         featurePlanner: featurePlanner ?? this.featurePlanner,
         featureExpenses: featureExpenses ?? this.featureExpenses,
+        plannerBreakfast: plannerBreakfast ?? this.plannerBreakfast,
         viewOrdering: viewOrdering ?? this.viewOrdering,
         description: description ?? this.description,
         link: link ?? this.link,
@@ -108,6 +114,7 @@ class Household extends Model {
         currency,
         featurePlanner,
         featureExpenses,
+        plannerBreakfast,
         viewOrdering,
         member,
         defaultShoppingList,
@@ -136,6 +143,9 @@ class Household extends Model {
     }
     if (featureExpenses != null) {
       data['expenses_feature'] = featureExpenses;
+    }
+    if (plannerBreakfast != null) {
+      data['planner_breakfast'] = plannerBreakfast;
     }
     if (viewOrdering != null) {
       data['view_ordering'] = viewOrdering!.map((e) => e.toString()).toList()

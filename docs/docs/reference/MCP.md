@@ -169,9 +169,9 @@ All tools return JSON, both as readable text content and as `structuredContent`.
 
 | Tool | Arguments | Description |
 | --- | --- | --- |
-| `list_planner` | `household_id` | List all meal plan entries of a household. |
-| `add_planner_entry` | `household_id`, `recipe_id`, `cooking_date` (`yields`) | Plan a recipe for a day. `cooking_date` is an ISO 8601 datetime, e.g. `2026-11-08T00:00:00Z`. |
-| `remove_planner_entry` | `household_id`, `recipe_id`, `cooking_date` | Remove a meal plan entry matching recipe and date. |
+| `list_planner` | `household_id` | List all meal plan entries of a household. Each entry has a `meal`. |
+| `add_planner_entry` | `household_id`, `recipe_id`, `cooking_date` (`yields`, `meal`) | Plan a recipe for a day. `cooking_date` is an ISO 8601 datetime, e.g. `2026-11-08T00:00:00Z`. `meal` is `breakfast`, `lunch`, `dinner` or `any` (default), so the same recipe can be planned for several meals of one day. |
+| `remove_planner_entry` | `household_id`, `recipe_id`, `cooking_date` (`meal`) | Remove the recipe from that day. With `meal`, only that meal's entry is removed; without it, every meal of the day. Returns `count`, the number of entries removed. |
 
 ### Expenses
 
@@ -185,5 +185,5 @@ All tools return JSON, both as readable text content and as `structuredContent`.
 
 - **Household scoping**: every mutation and read is checked against the households of the authenticated user. Requests for households you do not belong to fail with a not-found error, as do resources of other households.
 - **Recipe discovery**: `list_recipes` and `search_recipes` return only `id` and `name` by default to keep responses small. Pass `additional_fields` to request more data in bulk: `description`, `photo`, `photo_hash`, `time`, `cook_time`, `prep_time`, `yields`, `source`, `visibility`, `created_at`, `updated_at`, `planned`, `planned_days`, `planned_cooking_dates`, `items` and `tags`. Pagination uses `offset`/`limit` (default 50, maximum 100); the response contains `total` and `next_offset` (`null` when the last page was returned). Use `get_recipe` for one complete recipe.
-- **Idempotency**: adding an item, tag or planner entry that already exists does not duplicate it; the existing entry is kept or updated.
+- **Idempotency**: adding an item, tag or planner entry that already exists does not duplicate it; the existing one is returned unchanged (a planner entry keeps its `yields`, an item on a list keeps its description).
 - **Errors** are reported as JSON-RPC errors (invalid arguments, unknown tool) or as a tool result with a reason, e.g. `{ "removed": false, "reason": "not_found" }` or `{ "deleted": false, "reason": "default_list" }`.

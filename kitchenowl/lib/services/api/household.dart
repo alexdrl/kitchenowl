@@ -37,6 +37,18 @@ extension HouseholdApi on ApiService {
     return res.statusCode == 200;
   }
 
+  Future<bool> setHouseholdPlannerBreakfast(
+    Household household,
+    bool value,
+  ) async {
+    final res = await post(
+      '$baseRoute/${household.id}',
+      jsonEncode({'planner_breakfast': value}),
+    );
+
+    return res.statusCode == 200;
+  }
+
   Future<Household?> addHousehold(Household household) async {
     final res = await post(
       baseRoute,

@@ -14,7 +14,14 @@ server {
     location ~* ^/(index\.html|flutter_bootstrap\.js|flutter_service_worker\.js|manifest\.json|version\.json)$ {
         add_header Cache-Control "no-cache";
     }
-    location ~* ^/assets/|\.(js|mjs|wasm|symbols)$ {
+    # nginx's mime.types has no .mjs: without this the Flutter wasm loader
+    # (main.dart.*.mjs) is served as application/octet-stream and browsers
+    # refuse it as a module script
+    location ~* \.mjs$ {
+        types { application/javascript mjs; }
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+    location ~* ^/assets/|\.(js|wasm|symbols)$ {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
     location /api/ {
