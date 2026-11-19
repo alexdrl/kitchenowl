@@ -221,6 +221,9 @@ class WearBridge {
       } while (_again);
     } on MissingPluginException {
       // No native side.
+    } on PlatformException catch (e) {
+      // Play services' Wearable API missing (no Wear OS app): not an error for the app.
+      AppLog.info('Wear: actions not read', fields: {'reason': e.message});
     } catch (e, st) {
       AppLog.warn('Wear: processing the actions failed', error: e, stack: st);
     } finally {
