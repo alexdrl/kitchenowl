@@ -6,6 +6,7 @@ import 'package:kitchenowl/enums/meal_enum.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/planner.dart';
 import 'package:kitchenowl/models/planner_note.dart';
+import 'package:kitchenowl/services/api/api_service.dart';
 
 /// Feeds the Android home screen widget with the planned menu
 /// (`MenuWidgetProvider.kt`).
@@ -13,8 +14,9 @@ import 'package:kitchenowl/models/planner_note.dart';
 /// Whenever the planner loads, the app writes [days] days starting on the
 /// Monday of the current week: the small widget shows today, the big one the
 /// current Monday-Sunday week. Covering next week too lets both move on at
-/// midnight (and on Monday) without the app. Anything else that refreshes the
-/// plan (e.g. a background job) just has to call [MenuWidget.update] too.
+/// midnight (and on Monday) without the app. The background fetch task also
+/// downloads the plan again ([refreshInBackground]), so changes made on another
+/// device show up without opening the app.
 abstract class MenuWidget {
   /// Key of the JSON in the widget storage, read by the native side.
   static const dataKey = 'menu';
@@ -45,6 +47,60 @@ abstract class MenuWidget {
       // The widget is a nicety: never let it break the planner.
     }
   }
+
+  /// Downloads the plan of the household the widget shows and redraws it.
+  /// Called by the background fetch task, with [ApiService] already connected.
+  /// Does nothing when no menu widget is on the home screen, when the app has
+  /// never written one (it doesn't know which household to show) or when a
+  /// request fails: the widget then keeps what it had.
+  static Future<void> refreshInBackground() async {
+    if (!supported) return;
+    try {
+      final widgets = await HomeWidget.getInstalledWidgets();
+      // androidClassName is the short name: ".MenuWidgetProvider"
+      final shown = widgets.any(
+        (w) => w.androidClassName?.endsWith('MenuWidgetProvider') ?? false,
+      );
+      if (!shown) return;
+
+      final household = householdOf(
+        await HomeWidget.getWidgetData<String>(dataKey),
+      );
+      if (household == null) return;
+
+      final api = ApiService.getInstance();
+      final (plans, notes) = await (
+        api.getPlanned(household),
+        api.getPlannerNotes(household, from: firstDay(DateTime.now())),
+      ).wait;
+      if (plans == null || notes == null) return;
+      await update(household, plans, notes);
+    } catch (_) {
+      // Same as update(): the widget must never break the background task.
+    }
+  }
+
+  /// The household of the widget JSON the app wrote last, or null.
+  @visibleForTesting
+  static Household? householdOf(String? json) {
+    if (json == null) return null;
+    try {
+      final household = (jsonDecode(json) as Map)['household'] as Map;
+      final id = household['id'];
+      if (id is! int) return null;
+      return Household(id: id, name: household['name'] as String? ?? '');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The Monday of [now]'s week, as the UTC midnight plans and notes use.
+  @visibleForTesting
+  static DateTime firstDay(DateTime now) => DateTime.utc(
+        now.year,
+        now.month,
+        now.day - (now.weekday - DateTime.monday),
+      );
 
   /// The widget's JSON (version 1):
   /// `{"version", "household": {"id", "name"}, "updated": <ms>,
