@@ -878,6 +878,8 @@
   "plannerWeekView": "Week view",
   "plannerListView": "List view",
   "plannerShowBreakfast": "Show breakfast",
+  "plannerPhoneCalendar": "Show in phone calendar",
+  "plannerPhoneCalendarDenied": "KitchenOwl needs access to your calendar to show the meals there",
   "plannerNoDay": "No day",
   "plannerOtherDate": "Other date…",
   "plannerAddTitle": "Add to meal plan",

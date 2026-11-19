@@ -18,6 +18,7 @@ import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/pages/item_selection_page.dart';
 import 'package:kitchenowl/pages/recipe_list_display_page.dart';
+import 'package:kitchenowl/services/phone_calendar.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
 import 'package:kitchenowl/services/transactions/planner.dart';
 import 'package:kitchenowl/services/transactions/recipe.dart';
@@ -85,9 +86,15 @@ class _PlannerPageState extends State<PlannerPage> {
   bool weekView = true;
   int weekOffset = 0;
 
+  /// Whether the meals show in the phone's calendar (Android only)
+  bool phoneCalendar = false;
+
   @override
   void initState() {
     super.initState();
+    PhoneCalendar.isEnabled().then((on) {
+      if (mounted) setState(() => phoneCalendar = on);
+    });
   }
 
   @override
@@ -167,22 +174,41 @@ class _PlannerPageState extends State<PlannerPage> {
                                     : Icons.calendar_view_week_rounded,
                               ),
                             ),
-                            if (weekView)
-                              PopupMenuButton<bool>(
-                                onSelected: (value) async => _reportFailure(
-                                  await context
-                                      .read<HouseholdCubit>()
-                                      .setPlannerBreakfast(value),
-                                ),
+                            if (weekView || PhoneCalendar.supported)
+                              PopupMenuButton<_PlannerMenu>(
+                                onSelected: (value) async {
+                                  switch (value) {
+                                    case _PlannerMenu.breakfast:
+                                      _reportFailure(
+                                        await context
+                                            .read<HouseholdCubit>()
+                                            .setPlannerBreakfast(
+                                              !showBreakfast,
+                                            ),
+                                      );
+                                    case _PlannerMenu.phoneCalendar:
+                                      await _togglePhoneCalendar();
+                                  }
+                                },
                                 itemBuilder: (context) => [
-                                  CheckedPopupMenuItem(
-                                    value: !showBreakfast,
-                                    checked: showBreakfast,
-                                    child: Text(
-                                      AppLocalizations.of(context)!
-                                          .plannerShowBreakfast,
+                                  if (weekView)
+                                    CheckedPopupMenuItem(
+                                      value: _PlannerMenu.breakfast,
+                                      checked: showBreakfast,
+                                      child: Text(
+                                        AppLocalizations.of(context)!
+                                            .plannerShowBreakfast,
+                                      ),
                                     ),
-                                  ),
+                                  if (PhoneCalendar.supported)
+                                    CheckedPopupMenuItem(
+                                      value: _PlannerMenu.phoneCalendar,
+                                      checked: phoneCalendar,
+                                      child: Text(
+                                        AppLocalizations.of(context)!
+                                            .plannerPhoneCalendar,
+                                      ),
+                                    ),
                                 ],
                               ),
                             if (state.recipePlans.isNotEmpty &&
@@ -759,6 +785,23 @@ class _PlannerPageState extends State<PlannerPage> {
 
   /// Text meals and the breakfast setting aren't queued offline: say so
   /// when the server didn't take a change instead of losing it silently.
+  Future<void> _togglePhoneCalendar() async {
+    final wanted = !phoneCalendar;
+    final on = await PhoneCalendar.setEnabled(wanted);
+    if (!mounted) return;
+    setState(() => phoneCalendar = on);
+    if (wanted && !on) {
+      showSnackbar(
+        context: context,
+        width: null,
+        duration: const Duration(seconds: 4),
+        content: Text(
+          AppLocalizations.of(context)!.plannerPhoneCalendarDenied,
+        ),
+      );
+    }
+  }
+
   void _reportFailure(bool ok) {
     // The page's own context: callers may hold one from a closed sheet
     if (ok || !mounted) return;
@@ -832,3 +875,5 @@ class _PlannerPageState extends State<PlannerPage> {
     }
   }
 }
+
+enum _PlannerMenu { breakfast, phoneCalendar }

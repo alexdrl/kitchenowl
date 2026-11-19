@@ -22,6 +22,13 @@ abstract class MenuWidget {
   static const dataKey = 'menu';
   static const androidProvider = 'com.tombursch.kitchenowl.MenuWidgetProvider';
 
+  /// Asks for a sync of the phone calendar (`PhoneCalendar`), which reads the
+  /// same data. Sent through home_widget because that also works headless.
+  static const _calendarTrigger = 'com.tombursch.kitchenowl.CalendarSyncTrigger';
+
+  /// Set by the native side while the phone calendar is on.
+  static const _calendarFlag = 'calendar_sync';
+
   /// This week and the next one.
   static const days = 14;
 
@@ -43,6 +50,9 @@ abstract class MenuWidget {
       );
       await HomeWidget.saveWidgetData<String>(dataKey, jsonEncode(data));
       await HomeWidget.updateWidget(qualifiedAndroidName: androidProvider);
+      if (await _calendarOn()) {
+        await HomeWidget.updateWidget(qualifiedAndroidName: _calendarTrigger);
+      }
     } catch (_) {
       // The widget is a nicety: never let it break the planner.
     }
@@ -50,7 +60,7 @@ abstract class MenuWidget {
 
   /// Downloads the plan of the household the widget shows and redraws it.
   /// Called by the background fetch task, with [ApiService] already connected.
-  /// Does nothing when no menu widget is on the home screen, when the app has
+  /// Does nothing when neither a menu widget nor the phone calendar is on, when the app has
   /// never written one (it doesn't know which household to show) or when a
   /// request fails: the widget then keeps what it had.
   static Future<void> refreshInBackground() async {
@@ -61,7 +71,7 @@ abstract class MenuWidget {
       final shown = widgets.any(
         (w) => w.androidClassName?.endsWith('MenuWidgetProvider') ?? false,
       );
-      if (!shown) return;
+      if (!shown && !await _calendarOn()) return;
 
       final household = householdOf(
         await HomeWidget.getWidgetData<String>(dataKey),
@@ -79,6 +89,9 @@ abstract class MenuWidget {
       // Same as update(): the widget must never break the background task.
     }
   }
+
+  static Future<bool> _calendarOn() async =>
+      await HomeWidget.getWidgetData<bool>(_calendarFlag) ?? false;
 
   /// The household of the widget JSON the app wrote last, or null.
   @visibleForTesting

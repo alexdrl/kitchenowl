@@ -64,3 +64,8 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Unit tests of the phone calendar logic (MenuCalendar.kt)
+    testImplementation("junit:junit:4.13.2")
+}
