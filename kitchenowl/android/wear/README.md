@@ -5,10 +5,20 @@ A small watch app to tick off the shopping list in the supermarket without takin
 **The watch never talks to the server and holds no token.** The phone app relays everything over
 the Wearable Data Layer, so the watch needs no Wi-Fi or LTE and there is nothing to revoke on it.
 
-- **List**: items of one shopping list, grouped under category headers (the phone's category order).
-  Tap an item: it is struck through, disappears after 2 s, and is removed on the server by the
-  phone. An **Undo** button stays for 5 s and puts it back.
-- **Several lists**: tap the list name at the top to switch (the phone publishes the chosen list).
+- **Categories first** (the phone's category order, so if you order the categories like the shop,
+  it is your route): the home screen has one edge-to-edge bar per category with its icon, its first
+  items and how many are left. Tap a bar to open it.
+- **Inside a category**: the items as edge-to-edge bars (56 dp high; the whole bar is the touch
+  target). Tap an item: it is struck through, disappears after 2 s, and is removed on the server by
+  the phone. An **Undo** button stays for 5 s and puts it back. The top bar goes back; the bottom bar
+  goes to the next category.
+- **Category done**: after the last item, "Panadería hecha", an Undo bar and the next category as a
+  big bar, to carry on without going back.
+- **Icons**: each item shows its icon from the app's `Items` font (the phone sends the code point;
+  `res/font/items.ttf` is a copy of `kitchenowl/fonts/Items.ttf`), or its first letter when it has none.
+  Category colours come from the category name, so they never change. The font's licence does not allow
+  redistributing it: keep the APK private, as the phone APK already is.
+- **Several lists**: tap the header ("7 por comprar" and the list name) to switch.
 - **Offline**: the watch always shows the phone's last list. When the watch is away from the phone,
   ticks wait in the Data Layer and are applied when it is back. They are shown as "N not confirmed
   yet"; a put-back item carries "not confirmed" until the phone's next list confirms it. When the
@@ -36,10 +46,11 @@ the Wearable Data Layer, so the watch needs no Wi-Fi or LTE and there is nothing
 ```json
 {"version":1,"household_id":9,"list_id":7,"list_name":"Groceries","updated_ms":1700000000000,
  "lists":[{"id":7,"name":"Groceries"}],
- "items":[{"id":1,"name":"Milk","description":"2 l","category":"Dairy"}]}
+ "items":[{"id":1,"name":"Milk","description":"2 l","category":"Dairy","icon":259}]}
 ```
 
-Items are sorted like the app's category view (category order, then name, uncategorized last). The
+Items are sorted like the app's category view (category order, then name, uncategorized last).
+`icon` is the code point in the `Items` font, left out when the item has no icon. The
 Data Layer allows 100 KB per item, so a huge list is cut to 90 KB (the last categories are dropped).
 
 **Action** (watch → phone), `/kitchenowl/actions/<uuid>`:

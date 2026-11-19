@@ -22,6 +22,14 @@
     <string name="not_confirmed">%d not confirmed yet</string>
     <string name="item_not_confirmed">not confirmed</string>
 
+    <string name="to_buy">to buy</string>
+    <string name="back_to_categories">Categories</string>
+    <string name="next_category">Next: %s</string>
+    <string name="category_done">%s done</string>
+    <string name="to_buy_total">%d left to buy</string>
+    <string name="undo">Undo</string>
+    <string name="all_bought">All bought</string>
+
     <string name="tile_all_done">All done</string>
     <plurals name="tile_items_left">
         <item quantity="one">%d item left</item>

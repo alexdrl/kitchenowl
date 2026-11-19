@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:kitchenowl/helpers/item_name.dart';
+import 'package:kitchenowl/item_icons.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 
 /// What the phone publishes for the Wear OS app at `/kitchenowl/shoppinglist`
@@ -14,7 +15,8 @@ import 'package:kitchenowl/models/shoppinglist.dart';
 /// ```
 ///
 /// Items are sorted like the app's category view: categories by their ordering,
-/// items by name, uncategorized last.
+/// items by name, uncategorized last. `icon` is the code point of the item's glyph in the
+/// app's `Items` font (which the watch app bundles); absent when the item has no icon.
 class WearSnapshot {
   static const int version = 1;
 
@@ -80,6 +82,7 @@ class WearSnapshot {
                 name: e.name,
                 description: e.description,
                 category: e.category?.name,
+                icon: ItemIcons.get(e)?.codePoint,
               ))
           .toList(),
     );
@@ -150,11 +153,15 @@ class WearItem {
   final String description;
   final String? category;
 
+  /// Code point in the `Items` font, null = no icon.
+  final int? icon;
+
   const WearItem({
     required this.id,
     required this.name,
     this.description = '',
     this.category,
+    this.icon,
   });
 
   Map<String, dynamic> toJson() => {
@@ -162,6 +169,7 @@ class WearItem {
         'name': name,
         'description': description,
         'category': category,
+        if (icon != null) 'icon': icon,
       };
 
   factory WearItem.fromJson(Map<String, dynamic> map) => WearItem(
@@ -169,6 +177,7 @@ class WearItem {
         name: map['name'] as String,
         description: map['description'] as String? ?? '',
         category: map['category'] as String?,
+        icon: map['icon'] as int?,
       );
 }
 

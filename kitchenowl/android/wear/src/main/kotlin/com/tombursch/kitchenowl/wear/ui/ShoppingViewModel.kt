@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The category being looked at; a null name is "uncategorized". */
+data class OpenCategory(val name: String?)
+
 class ShoppingViewModel : ViewModel() {
     private val repo = ServiceLocator.repository
 
@@ -31,6 +34,18 @@ class ShoppingViewModel : ViewModel() {
     /** Shown on the refresh button until the phone answers (or a few seconds pass). */
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing
+
+    /** The category that is open (E2/E3); null = the category overview (E1). */
+    private val _open = MutableStateFlow<OpenCategory?>(null)
+    val open: StateFlow<OpenCategory?> = _open
+
+    fun openCategory(name: String?) {
+        _open.value = OpenCategory(name)
+    }
+
+    fun closeCategory() {
+        _open.value = null
+    }
 
     private var undoTimeout: Job? = null
     private var refreshTimeout: Job? = null
