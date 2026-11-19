@@ -61,8 +61,8 @@ const val STALE_AFTER_MILLIS = 60 * 60 * 1000L
 /** The app's item icon font (the phone sends each item's code point). */
 private val ItemsFont = FontFamily(Font(R.font.items))
 
-private val BarHeight = 56.dp
-private val SmallBarHeight = 48.dp
+internal val BarHeight = 56.dp
+internal val SmallBarHeight = 48.dp
 
 private fun CategoryStyle.bg() = Color(background)
 private fun CategoryStyle.fg() = Color(accent)
@@ -76,12 +76,20 @@ fun WearRoot(viewModel: ShoppingViewModel) {
             val state by viewModel.state.collectAsState()
             var picking by remember { mutableStateOf(false) }
             val open by viewModel.open.collectAsState()
+            val menu by viewModel.menu.collectAsState()
+            val menuNav by viewModel.menuNav.collectAsState()
 
-            BackHandler(enabled = picking || open != null) {
-                if (picking) picking = false else viewModel.closeCategory()
+            BackHandler(enabled = picking || open != null || menuNav != null) {
+                val nav = menuNav
+                when {
+                    picking -> picking = false
+                    nav != null -> if (nav.day != null) viewModel.openMenu(null) else viewModel.closeMenu()
+                    else -> viewModel.closeCategory()
+                }
             }
 
             when {
+                menuNav != null -> MenuScreen(viewModel, menu, menuNav!!)
                 state.snapshot == null -> NoSnapshotScreen()
                 picking -> ListPicker(
                     lists = state.lists,
@@ -124,6 +132,7 @@ private fun NoSnapshotScreen() {
 @Composable
 private fun CategoriesScreen(viewModel: ShoppingViewModel, state: WatchState, onPickList: () -> Unit) {
     val refreshing by viewModel.refreshing.collectAsState()
+    val menu by viewModel.menu.collectAsState()
     val groups = remember(state.items) { groupByCategory(state.items) }
     val total = state.items.size
     val ageText = ageText(state.updatedMs)
@@ -195,6 +204,19 @@ private fun CategoriesScreen(viewModel: ShoppingViewModel, state: WatchState, on
                         )
                     }
                     Text("${group.items.size}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = style.fg())
+                }
+            }
+            if (menu != null) {
+                item(key = "menu") {
+                    Bar(Color(0xFF26262B), SmallBarHeight, onClick = { viewModel.openMenu() }) {
+                        Text(
+                            stringResource(R.string.menu_title) + "  ›",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
             item(key = "refresh") {
@@ -434,7 +456,7 @@ private fun CategoryDoneScreen(
  * The padding keeps the content clear of the round screen's corners.
  */
 @Composable
-private fun Bar(
+internal fun Bar(
     background: Color,
     height: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,

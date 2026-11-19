@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:kitchenowl/enums/meal_enum.dart';
@@ -10,6 +12,7 @@ import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
 import 'package:kitchenowl/services/menu_widget.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
+import 'package:kitchenowl/services/wear_bridge.dart';
 import 'package:kitchenowl/services/transactions/planner.dart';
 import 'package:kitchenowl/services/transactions/shoppinglist.dart';
 
@@ -33,8 +36,29 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
     await refresh();
   }
 
+  Timer? _wearPublishTimer;
+
   PlannerCubit(this.household) : super(const LoadingPlannerCubitState()) {
     refresh();
+  }
+
+  /// Every load of the plan also goes to the Wear OS watch (its menu tile), a moment later
+  /// so that a burst of changes is sent once.
+  @override
+  void onChange(Change<PlannerCubitState> change) {
+    super.onChange(change);
+    final next = change.nextState;
+    if (!WearBridge.isSupported || next is! LoadedPlannerCubitState) return;
+    _wearPublishTimer?.cancel();
+    _wearPublishTimer = Timer(const Duration(milliseconds: 1500), () {
+      WearBridge.publishMenu(household.id, next.recipePlans, next.notes);
+    });
+  }
+
+  @override
+  Future<void> close() {
+    _wearPublishTimer?.cancel();
+    return super.close();
   }
 
   Future<void> remove(

@@ -8,7 +8,7 @@ import kotlinx.serialization.encodeToString
  * The cached snapshot and the unconfirmed actions, as JSON in the app's private storage.
  * Nothing secret in here: the watch holds no token, only the shopping list the phone sent.
  */
-class PrefsStore(context: Context) : WatchStore {
+class PrefsStore(context: Context) : WatchStore, MenuStorage {
     private val prefs = context.getSharedPreferences("watch", Context.MODE_PRIVATE)
 
     override fun loadSnapshot(): PhoneSnapshot? = read(KEY_SNAPSHOT)
@@ -22,6 +22,12 @@ class PrefsStore(context: Context) : WatchStore {
     override fun saveQueue(queue: List<PendingAction>) {
         // commit(): a tick must survive the process being killed right after the tap.
         prefs.edit().putString(KEY_QUEUE, json.encodeToString(Queue(queue))).commit()
+    }
+
+    override fun loadMenu(): PhoneMenu? = read(KEY_MENU)
+
+    override fun saveMenu(menu: PhoneMenu) {
+        prefs.edit().putString(KEY_MENU, json.encodeToString(menu)).apply()
     }
 
     override fun loadRequestedList(): Pair<Long, Long>? =
@@ -50,6 +56,7 @@ class PrefsStore(context: Context) : WatchStore {
 
     private companion object {
         const val KEY_SNAPSHOT = "snapshot"
+        const val KEY_MENU = "menu"
         const val KEY_QUEUE = "queue"
         const val KEY_REQUESTED = "requested_list"
         const val KEY_REQUESTED_AT = "requested_list_at"

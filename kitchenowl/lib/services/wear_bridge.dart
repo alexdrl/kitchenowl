@@ -5,6 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:kitchenowl/models/household.dart';
+import 'package:kitchenowl/models/planner.dart';
+import 'package:kitchenowl/models/planner_note.dart';
+import 'package:kitchenowl/models/wear_menu.dart';
+import 'package:kitchenowl/services/api/api_service.dart';
 import 'package:kitchenowl/models/item.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/models/wear_snapshot.dart';
@@ -38,6 +42,8 @@ class WearBridge {
   static bool _again = false;
   static String? _lastKey;
   static DateTime? _lastPublish;
+  static String? _lastMenuKey;
+  static DateTime? _lastMenuPublish;
 
   /// Call once the UI engine runs: lets the native side nudge us when the watch did something.
   static void init() {
@@ -85,6 +91,61 @@ class WearBridge {
     } on PlatformException catch (e) {
       // Play services missing or no watch paired: not an error for the app.
       debugPrint('[WearBridge] publish failed: ${e.message}');
+    }
+  }
+
+  /// Publishes the planned menu (`/kitchenowl/menu`) for the watch's menu tile. Cheap to call
+  /// on every change: identical content is only sent again after a few minutes.
+  static Future<void> publishMenu(
+    int householdId,
+    List<RecipePlan> plans,
+    List<PlannerNote> notes, {
+    bool force = false,
+  }) async {
+    if (!isSupported) return;
+    try {
+      final now = DateTime.now();
+      final menu = WearMenu.build(
+        householdId: householdId,
+        plans: plans,
+        notes: notes,
+        now: now,
+      );
+      final key = WearMenu.contentKey(menu);
+      if (!force &&
+          key == _lastMenuKey &&
+          _lastMenuPublish != null &&
+          now.difference(_lastMenuPublish!) < _republishAfter) {
+        return;
+      }
+      _lastMenuKey = key;
+      _lastMenuPublish = now;
+      await _channel.invokeMethod('publishMenu', WearMenu.encode(menu));
+    } on MissingPluginException {
+      // No native side.
+    } on PlatformException catch (e) {
+      debugPrint('[WearBridge] menu publish failed: ${e.message}');
+    }
+  }
+
+  /// Downloads the plan and publishes it (periodic refresh, or the watch asked).
+  static Future<void> _publishMenuFromApi(Household household) async {
+    try {
+      final api = ApiService.getInstance();
+      final now = DateTime.now();
+      final (plans, notes) = await (
+        api.getPlanned(household),
+        api.getPlannerNotes(
+          household,
+          from: DateTime.utc(
+              now.year, now.month, now.day - (now.weekday - DateTime.monday)),
+        ),
+      ).wait;
+      // Offline or the planner is off for this household: keep what the watch has.
+      if (plans == null || notes == null) return;
+      await publishMenu(household.id, plans, notes, force: true);
+    } catch (e) {
+      debugPrint('[WearBridge] menu refresh failed: $e');
     }
   }
 
@@ -156,6 +217,7 @@ class WearBridge {
     if (lists != null) {
       await publish(household.id, lists, force: true);
     }
+    await _publishMenuFromApi(household);
   }
 
   static Future<void> _apply(

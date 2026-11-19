@@ -3,6 +3,7 @@ package com.tombursch.kitchenowl.wear.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tombursch.kitchenowl.wear.ServiceLocator
+import com.tombursch.kitchenowl.wear.data.PhoneMenu
 import com.tombursch.kitchenowl.wear.data.WatchItem
 import com.tombursch.kitchenowl.wear.data.WatchState
 import kotlinx.coroutines.Job
@@ -45,6 +46,22 @@ class ShoppingViewModel : ViewModel() {
 
     fun closeCategory() {
         _open.value = null
+    }
+
+    /** The phone's planned menu (for the menu screens and the tile). */
+    val menu: StateFlow<PhoneMenu?> = ServiceLocator.menuRepository.state
+
+    /** Where the user is in the menu screens; null = not in the menu. */
+    private val _menuNav = MutableStateFlow<MenuNav?>(null)
+    val menuNav: StateFlow<MenuNav?> = _menuNav
+
+    /** [day] = `yyyy-MM-dd` for one day, null for the week. */
+    fun openMenu(day: String? = null) {
+        _menuNav.value = MenuNav(day)
+    }
+
+    fun closeMenu() {
+        _menuNav.value = null
     }
 
     private var undoTimeout: Job? = null
