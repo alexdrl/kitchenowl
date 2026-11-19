@@ -4,8 +4,12 @@ gevent.monkey.patch_all()
 import argparse
 import os
 
-from app import app, socketio
+from app import app, db, socketio
 from app.config import UPLOAD_FOLDER
+from app.telemetry import init_tracing
+
+# Off unless OTEL_EXPORTER_OTLP_ENDPOINT is set (app/telemetry.py)
+init_tracing(app, db)
 
 
 def parse_arguments():
