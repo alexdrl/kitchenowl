@@ -355,6 +355,23 @@ void main() {
       expect(c.requests, hasLength(1));
     });
 
+    test('a record keeps its own upload.id', () async {
+      LogFileStore(dir).append(
+        '${jsonEncode({
+          't': _base,
+          'l': 'info',
+          'm': 'Diagnostics summary',
+          'f': {'upload.id': 'old111'},
+        })}\n',
+      );
+      final c = _Collector();
+      await uploader(c).run(force: true, extra: {'upload.id': 'new222'});
+      final attrs = c.records.single['attributes'] as List;
+      expect(attrs.where((a) => a['key'] == 'upload.id').single['value'], {
+        'stringValue': 'old111',
+      });
+    });
+
     test('records too old for Loki are skipped, and passed', () async {
       final store = LogFileStore(dir);
       final old = DateTime.now()
