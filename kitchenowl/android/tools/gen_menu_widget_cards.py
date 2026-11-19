@@ -16,8 +16,11 @@ import sys
 MEALS = ["breakfast", "lunch", "dinner", "any"]
 
 
-def today_card(indent, width, height, fill):
+def today_card(indent, width, height, fill, compact=False):
+    """compact (tall layout): smaller type and padding, "updated" left out (the caller
+    puts it at the very bottom, where losing it to a short widget costs nothing)."""
     p = " " * indent
+    date_sp, meal_sp, gap = ("16sp", "14sp", "4dp") if compact else ("17sp", "15sp", "6dp")
     out = [
         f'{p}<LinearLayout',
         f'{p}    android:id="@+id/menu_widget_today_card"',
@@ -30,9 +33,9 @@ def today_card(indent, width, height, fill):
         f'{p}    android:background="@drawable/menu_widget_today"',
         f'{p}    android:orientation="vertical"',
         f'{p}    android:paddingStart="14dp"',
-        f'{p}    android:paddingTop="12dp"',
+        f'{p}    android:paddingTop="{"10dp" if compact else "12dp"}"',
         f'{p}    android:paddingEnd="14dp"',
-        f'{p}    android:paddingBottom="10dp">',
+        f'{p}    android:paddingBottom="{"8dp" if compact else "10dp"}">',
         f'{p}    <TextView',
         f'{p}        android:layout_width="wrap_content"',
         f'{p}        android:layout_height="wrap_content"',
@@ -47,7 +50,7 @@ def today_card(indent, width, height, fill):
         f'{p}        android:ellipsize="end"',
         f'{p}        android:maxLines="1"',
         f'{p}        android:textColor="@color/menu_widget_text"',
-        f'{p}        android:textSize="17sp"',
+        f'{p}        android:textSize="{date_sp}"',
         f'{p}        android:textStyle="bold" />',
     ]
     for m in MEALS:
@@ -56,7 +59,7 @@ def today_card(indent, width, height, fill):
             f'{p}        android:id="@+id/menu_widget_{m}"',
             f'{p}        android:layout_width="match_parent"',
             f'{p}        android:layout_height="wrap_content"',
-            f'{p}        android:layout_marginTop="6dp"',
+            f'{p}        android:layout_marginTop="{gap}"',
             f'{p}        android:orientation="vertical"',
             f'{p}        android:visibility="gone">',
             f'{p}        <TextView',
@@ -73,7 +76,7 @@ def today_card(indent, width, height, fill):
             f'{p}            android:ellipsize="end"',
             f'{p}            android:maxLines="2"',
             f'{p}            android:textColor="@color/menu_widget_text"',
-            f'{p}            android:textSize="15sp" />',
+            f'{p}            android:textSize="{meal_sp}" />',
             f'{p}    </LinearLayout>',
         ]
     out += [
@@ -93,6 +96,9 @@ def today_card(indent, width, height, fill):
             f'{p}        android:layout_height="0dp"',
             f'{p}        android:layout_weight="1" />',
         ]
+    if compact:
+        out.append(f'{p}</LinearLayout>')
+        return out
     out += [
         f'{p}    <TextView',
         f'{p}        android:id="@+id/menu_widget_updated"',
@@ -108,12 +114,12 @@ def today_card(indent, width, height, fill):
     return out
 
 
-def meal_line(p, i, meal, icon):
+def meal_line(p, i, meal, icon, compact=False):
     return [
         f'{p}<LinearLayout',
         f'{p}    android:layout_width="match_parent"',
         f'{p}    android:layout_height="wrap_content"',
-        f'{p}    android:layout_marginTop="2dp"',
+        f'{p}    android:layout_marginTop="{"1dp" if compact else "2dp"}"',
         f'{p}    android:gravity="center_vertical"',
         f'{p}    android:orientation="horizontal">',
         f'{p}    <ImageView',
@@ -134,7 +140,7 @@ def meal_line(p, i, meal, icon):
     ]
 
 
-def next_rows(indent, count, side_by_side):
+def next_rows(indent, count, side_by_side, compact=False):
     """Next days: the day label beside the meals (wide) or above them (tall)."""
     p = " " * indent
     out = [
@@ -153,13 +159,13 @@ def next_rows(indent, count, side_by_side):
             f'{p}    android:id="@+id/menu_widget_next{i}_divider"',
             f'{p}    android:layout_width="match_parent"',
             f'{p}    android:layout_height="1dp"',
-            f'{p}    android:layout_marginTop="5dp"',
+            f'{p}    android:layout_marginTop="{"4dp" if compact else "5dp"}"',
             f'{p}    android:background="@color/menu_widget_divider" />',
             f'{p}<LinearLayout',
             f'{p}    android:id="@+id/menu_widget_next{i}"',
             f'{p}    android:layout_width="match_parent"',
             f'{p}    android:layout_height="wrap_content"',
-            f'{p}    android:paddingTop="5dp"',
+            f'{p}    android:paddingTop="{"3dp" if compact else "5dp"}"',
             f'{p}    android:orientation="{"horizontal" if side_by_side else "vertical"}">',
             f'{p}    <TextView',
             f'{p}        android:id="@+id/menu_widget_next{i}_day"',
@@ -176,8 +182,8 @@ def next_rows(indent, count, side_by_side):
         if side_by_side:
             out.append(f'{p}        android:layout_weight="1"')
         out.append(f'{p}        android:orientation="vertical">')
-        out += meal_line(p + "        ", i, "lunch", "sun")
-        out += meal_line(p + "        ", i, "dinner", "moon")
+        out += meal_line(p + "        ", i, "lunch", "sun", compact)
+        out += meal_line(p + "        ", i, "dinner", "moon", compact)
         out += [f'{p}    </LinearLayout>', f'{p}</LinearLayout>']
     return out
 
@@ -213,11 +219,11 @@ wide += [
 wide += next_rows(8, 3, side_by_side=True)
 wide += ['    </LinearLayout>', '</LinearLayout>']
 
-tall = root("Narrow and tall menu widget: today on top, the next 4 days below.") + [
+tall = root("Narrow and tall menu widget: today on top, the next days below (as many as fit).") + [
     '    android:orientation="vertical"',
-    '    android:padding="12dp">',
+    '    android:padding="10dp">',
 ]
-tall += today_card(4, "match_parent", "wrap_content", None)
+tall += today_card(4, "match_parent", "wrap_content", None, compact=True)
 tall += [
     '    <LinearLayout',
     '        android:id="@+id/menu_widget_next"',
@@ -225,11 +231,27 @@ tall += [
     '        android:layout_height="wrap_content"',
     '        android:orientation="vertical"',
     '        android:paddingStart="6dp"',
-    '        android:paddingTop="10dp"',
+    '        android:paddingTop="8dp"',
     '        android:paddingEnd="6dp">',
 ]
-tall += next_rows(8, 4, side_by_side=False)
-tall += ['    </LinearLayout>', '</LinearLayout>']
+tall += next_rows(8, 4, side_by_side=False, compact=True)
+tall += [
+    '    </LinearLayout>',
+    '    <FrameLayout',
+    '        android:layout_width="match_parent"',
+    '        android:layout_height="0dp"',
+    '        android:layout_weight="1" />',
+    '    <TextView',
+    '        android:id="@+id/menu_widget_updated"',
+    '        android:layout_width="match_parent"',
+    '        android:layout_height="wrap_content"',
+    '        android:paddingStart="6dp"',
+    '        android:maxLines="1"',
+    '        android:textColor="@color/menu_widget_text_secondary"',
+    '        android:textSize="10sp"',
+    '        android:visibility="gone" />',
+    '</LinearLayout>',
+]
 
 out_dir = sys.argv[1]
 for name, lines in (("menu_widget_wide.xml", wide), ("menu_widget_tall.xml", tall)):

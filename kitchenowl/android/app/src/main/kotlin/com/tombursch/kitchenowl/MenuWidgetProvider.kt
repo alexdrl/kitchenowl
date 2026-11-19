@@ -102,26 +102,31 @@ class MenuWidgetProvider : HomeWidgetProvider() {
                 if (landscape) AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT
                 else AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
             .toFloat()
+    val tallFits = width >= TALL_MIN_WIDTH_DP && height >= tallHeightFor(width, 1)
+    val tall = {
+      val rows = (1..4).last { height >= tallHeightFor(width, it) }
+      renderWithNext(context, data, R.layout.menu_widget_tall, rows, 4, "EEEEd")
+    }
     return when {
-      height >= width * TALL_RATIO && width >= TALL_MIN_WIDTH_DP && height >= tallHeightFor(width, 1) -> {
-        val rows = (1..4).last { height >= tallHeightFor(width, it) }
-        renderWithNext(context, data, R.layout.menu_widget_tall, rows, 4, "EEEEd")
-      }
+      height >= width * TALL_RATIO && tallFits -> tall()
       width >= height * WIDE_RATIO && width >= WIDE_MIN_WIDTH_DP && height >= WIDE_MIN_HEIGHT_DP ->
           renderWithNext(context, data, R.layout.menu_widget_wide, 3, 3, "EEEd")
       width >= WEEK_MIN_WIDTH_DP && height >= WEEK_MIN_HEIGHT_DP -> renderWeek(context, data)
+      // In between, e.g. full width x 3 rows on a phone (S24: ~333x283dp): too short for
+      // the week, not wide enough for the side-by-side layout, but room for a next day.
+      tallFits -> tall()
       else -> render(context, data, R.layout.menu_widget, "EEEEdMMMM")
     }
   }
 
   /**
-   * Height (dp) the tall layout needs for [rows] next days, measured on emulators with
-   * ~10dp to spare: each next day takes about 69dp; the rest (padding, "next days"
-   * header, today's card) about 265dp at 2 phone columns (~190dp wide, meals on two
-   * lines) and 245dp from ~280dp wide (meals on one line). Rows that would not fit whole
-   * are hidden, never cut in half.
+   * Height (dp) the compact tall layout needs for [rows] next days, with ~15dp to spare:
+   * each next day ~66dp; the rest (padding, "next days" header, today's card) ~230dp at
+   * 2 phone columns (~190dp wide, meals on two lines) and ~192dp from ~280dp wide (meals
+   * on one line). The "updated" line sits at the very bottom and may be left out. Rows
+   * that would not fit whole are hidden, never cut in half.
    */
-  private fun tallHeightFor(width: Float, rows: Int) = (if (width >= 280f) 255f else 275f) + 69f * rows
+  private fun tallHeightFor(width: Float, rows: Int) = (if (width >= 280f) 192f else 230f) + 66f * rows
 
   /**
    * Today's card plus the next [count] days (lunch and dinner), for the wide and tall shapes;
