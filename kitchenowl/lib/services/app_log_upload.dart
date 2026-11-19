@@ -77,12 +77,13 @@ abstract class OtlpJson {
       'severityText': r.level.severityText,
       'body': {'stringValue': r.message},
       'attributes': attributes({
+        // The record's own values win (a summary keeps the id of its own upload).
+        ...extra,
         if (r.source != null) 'log.source': r.source,
         ...r.fields,
         if (r.errorType != null) 'exception.type': r.errorType,
         if (r.errorMessage != null) 'exception.message': r.errorMessage,
         if (r.stack != null) 'exception.stacktrace': r.stack,
-        ...extra,
       }),
     });
   }
