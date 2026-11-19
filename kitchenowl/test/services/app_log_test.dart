@@ -14,8 +14,11 @@ const _config = LogUploadConfig(
   environment: 'test',
 );
 
-String _line(int i, {String level = 'info', String msg = 'm'}) =>
-    '${jsonEncode({'t': 1700000000000 + i, 'l': level, 'm': '$msg$i'})}\n';
+/// Recent enough for Loki (records older than 6 days are not sent).
+final _base = DateTime.now().millisecondsSinceEpoch;
+
+String _line(int i, {String level = 'info', String msg = 'm', int? at}) =>
+    '${jsonEncode({'t': (at ?? _base) + i, 'l': level, 'm': '$msg$i'})}\n';
 
 /// A collector double: records every request and answers with [status] (or per call).
 class _Collector {
@@ -73,6 +76,18 @@ void main() {
       expect(full.logsUri.toString(), 'https://otel.example.test/v1/logs');
       expect(const LogUploadConfig(endpoint: '', token: 't').enabled, isFalse);
     });
+  });
+
+  test('upload ids are 6 unambiguous characters; the instance id is kept', () {
+    for (var i = 0; i < 50; i++) {
+      expect(
+        AppLogUploader.newUploadId(),
+        matches(RegExp(r'^[abcdefghjkmnpqrstuvwxyz23456789]{6}$')),
+      );
+    }
+    final id = AppLogUploader.instanceId(dir);
+    expect(id, hasLength(32));
+    expect(AppLogUploader.instanceId(dir), id);
   });
 
   group('OTLP JSON', () {
@@ -303,12 +318,12 @@ void main() {
 
     test('not due: waits the interval unless an error was logged', () async {
       final now = DateTime(2030, 1, 1, 12);
-      LogFileStore(dir).append(_line(1));
+      LogFileStore(dir).append(_line(1, at: now.millisecondsSinceEpoch));
       final c = _Collector();
       expect((await uploader(c, now: now).run()).ok, isTrue);
       expect(c.requests, hasLength(1));
 
-      LogFileStore(dir).append(_line(2));
+      LogFileStore(dir).append(_line(2, at: now.millisecondsSinceEpoch));
       final later = now.add(const Duration(hours: 1));
       expect((await uploader(c, now: later).run()).skipped, isTrue);
 
@@ -322,14 +337,14 @@ void main() {
       expect(c.requests, hasLength(2));
       expect(File('${dir.path}/upload-urgent').existsSync(), isFalse);
 
-      LogFileStore(dir).append(_line(3));
+      LogFileStore(dir).append(_line(3, at: now.millisecondsSinceEpoch));
       final sixHoursLater = later.add(const Duration(hours: 6, minutes: 1));
       expect((await uploader(c, now: sixHoursLater).run()).skipped, isFalse);
     });
 
     test('after a failure the background retry waits an hour', () async {
       final now = DateTime(2030, 1, 1, 12);
-      LogFileStore(dir).append(_line(1));
+      LogFileStore(dir).append(_line(1, at: now.millisecondsSinceEpoch));
       final c = _Collector(500);
       await uploader(c, now: now).run();
       final r = await uploader(
@@ -337,6 +352,22 @@ void main() {
         now: now.add(const Duration(minutes: 30)),
       ).run();
       expect(r.skipped, isTrue);
+      expect(c.requests, hasLength(1));
+    });
+
+    test('records too old for Loki are skipped, and passed', () async {
+      final store = LogFileStore(dir);
+      final old = DateTime.now()
+          .subtract(const Duration(days: 8))
+          .millisecondsSinceEpoch;
+      store.append(_line(1, at: old) + _line(2) + _line(3, at: old));
+      final c = _Collector();
+      final r = await uploader(c).run(force: true);
+      expect(r.records, 1);
+      expect(c.records.single['body'], {'stringValue': 'm2'});
+      // The position is past the old last line: nothing is sent again.
+      final again = await uploader(c).run(force: true);
+      expect(again.records, 0);
       expect(c.requests, hasLength(1));
     });
 

@@ -18,7 +18,7 @@ class LogUploadConfig {
   const LogUploadConfig({
     required this.endpoint,
     required this.token,
-    this.environment = 'production',
+    this.environment = 'release',
   });
 
   static const fromEnvironment = LogUploadConfig(
@@ -26,7 +26,7 @@ class LogUploadConfig {
     token: String.fromEnvironment('KO_LOGS_TOKEN'),
     environment: String.fromEnvironment(
       'KO_LOGS_ENVIRONMENT',
-      defaultValue: 'production',
+      defaultValue: 'release',
     ),
   );
 
@@ -332,6 +332,9 @@ class AppLogUploader {
   static const retryAfterFailure = Duration(hours: 1);
   static const maxBodyBytes = 1024 * 1024;
   static const maxRequestsPerRun = 8;
+
+  /// Loki refuses records older than 7 days: older lines are skipped (the position moves on).
+  static const maxAge = Duration(days: 6);
   static const _lockStale = Duration(minutes: 3);
 
   final Directory dir;
@@ -355,7 +358,7 @@ class AppLogUploader {
     return _shared ??= AppLogUploader(
       dir: dir,
       config: config,
-      resource: () => _phoneResource(config),
+      resource: () => _phoneResource(config, dir),
     );
   }
 
@@ -392,7 +395,12 @@ class AppLogUploader {
       final facts = await AppDiagnostics.collect();
       AppLog.info(
         'Diagnostics summary',
-        fields: {'upload.id': id, ...facts, ...before},
+        fields: {
+          'operation': 'manualUpload.summary',
+          'upload.id': id,
+          ...facts,
+          ...before,
+        },
       );
       await AppLog.flush();
       final result = await uploader.run(force: true, extra: {'upload.id': id});
@@ -409,7 +417,7 @@ class AppLogUploader {
   }
 
   static String newUploadId() {
-    const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
     final random = Random.secure();
     return List.generate(6, (_) => chars[random.nextInt(chars.length)]).join();
   }
@@ -598,18 +606,16 @@ class AppLogUploader {
     Map<String, Object?> extra,
     int requests,
   ) async {
-    final encoded = _phoneLines(state).map(
-      (e) => (OtlpJson.encodeRecord(LogRecord.parse(e.$1), extra: extra), e.$2),
-    );
+    LogPosition? last;
     final head = OtlpJson.head(resource);
     final chunks = buildChunks(
-      encoded,
+      _encode(_phoneLines(state), extra, (end) => last = end),
       maxBytes: maxBodyBytes,
       overhead: utf8.encode(head).length + OtlpJson.tail.length,
     );
     var sent = 0;
     for (final chunk in chunks) {
-      if (requests >= maxRequestsPerRun) break;
+      if (requests >= maxRequestsPerRun) return (sent, requests, null);
       requests++;
       final failure = await _post(client, head, chunk.records);
       if (failure != null) return (sent, requests, failure);
@@ -617,7 +623,31 @@ class AppLogUploader {
       state.position = chunk.end;
       _writeState(state);
     }
+    // Past the lines that were too old to send, too.
+    if (last != null && state.position != last) {
+      state.position = last;
+      _writeState(state);
+    }
     return (sent, requests, null);
+  }
+
+  /// OTLP records of [lines], without those Loki would refuse for their age. [seen] gets the
+  /// position of every line, sent or skipped.
+  Iterable<(String, P)> _encode<P>(
+    Iterable<(String, P)> lines,
+    Map<String, Object?> extra,
+    void Function(P) seen,
+  ) sync* {
+    final cutoff = _now().millisecondsSinceEpoch - maxAge.inMilliseconds;
+    for (final (line, end) in lines) {
+      seen(end);
+      final record = LogRecord.parse(
+        line,
+        fallbackTimeMs: _now().millisecondsSinceEpoch,
+      );
+      if (record.timeMs < cutoff) continue;
+      yield (OtlpJson.encodeRecord(record, extra: extra), end);
+    }
   }
 
   Iterable<String> _inboxes() sync* {
@@ -671,10 +701,7 @@ class AppLogUploader {
     final bytes = _readFrom(sending, offset) ?? Uint8List(0);
     final head = OtlpJson.head(_inboxResource(name));
     final chunks = buildChunks(
-      completeLines(bytes, offset).map(
-        (e) =>
-            (OtlpJson.encodeRecord(LogRecord.parse(e.$1), extra: extra), e.$2),
-      ),
+      _encode(completeLines(bytes, offset), extra, (_) {}),
       maxBytes: maxBodyBytes,
       overhead: utf8.encode(head).length + OtlpJson.tail.length,
     );
@@ -727,9 +754,11 @@ class AppLogUploader {
 
   static Future<Map<String, Object?>> _phoneResource(
     LogUploadConfig config,
+    Directory dir,
   ) async {
     final out = <String, Object?>{
       'service.name': 'kitchenowl-android',
+      'service.instance.id': instanceId(dir),
       'deployment.environment': config.environment,
       'os.name': 'Android',
     };
@@ -742,6 +771,7 @@ class AppLogUploader {
     }
     try {
       final device = await DeviceInfoPlugin().androidInfo;
+      out['device.model.identifier'] = device.model;
       out['device.model.name'] = device.model;
       out['device.manufacturer'] = device.manufacturer;
       out['os.version'] = device.version.release;
@@ -749,5 +779,27 @@ class AppLogUploader {
       // not Android, or the plugin is missing in this engine
     }
     return out;
+  }
+
+  /// A random id per install (`service.instance.id`), kept next to the logs.
+  static String instanceId(Directory dir) {
+    final file = File('${dir.path}/instance-id');
+    try {
+      final id = file.readAsStringSync().trim();
+      if (id.isNotEmpty) return id;
+    } catch (_) {
+      // first run
+    }
+    final random = Random.secure();
+    final id = List.generate(
+      16,
+      (_) => random.nextInt(256),
+    ).map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    try {
+      file.writeAsStringSync(id);
+    } catch (_) {
+      // a new id next time is not a problem
+    }
+    return id;
   }
 }
