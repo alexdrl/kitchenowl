@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_widget_label">Menú de hoy</string>
+    <string name="menu_widget_description">Lo que hay planificado para hoy</string>
+    <string name="menu_widget_breakfast">Desayuno</string>
+    <string name="menu_widget_lunch">Comida</string>
+    <string name="menu_widget_dinner">Cena</string>
+    <string name="menu_widget_other">Otro</string>
+    <string name="menu_widget_nothing_planned">Nada planificado para hoy</string>
+    <string name="menu_widget_open_app">Abre KitchenOwl para cargar el menú</string>
+    <string name="menu_widget_week_title">Esta semana</string>
+    <string name="menu_widget_today_label">HOY</string>
+    <string name="menu_widget_tomorrow_label">MAÑANA</string>
+    <string name="menu_widget_next_days">Próximos días</string>
+    <string name="menu_widget_updated">Actualizado %1$s</string>
+</resources>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_widget_label">Today\'s menu</string>
+    <string name="menu_widget_description">Today\'s planned meals</string>
+    <string name="menu_widget_breakfast">Breakfast</string>
+    <string name="menu_widget_lunch">Lunch</string>
+    <string name="menu_widget_dinner">Dinner</string>
+    <string name="menu_widget_other">Other</string>
+    <string name="menu_widget_nothing_planned">Nothing planned for today</string>
+    <string name="menu_widget_open_app">Open KitchenOwl to load the menu</string>
+    <string name="menu_widget_week_title">This week</string>
+    <string name="menu_widget_today_label">TODAY</string>
+    <string name="menu_widget_tomorrow_label">TOMORROW</string>
+    <string name="menu_widget_next_days">Next days</string>
+    <string name="menu_widget_updated">Updated %1$s</string>
+
+    <color name="menu_widget_background">#FFF4F4EC</color>
+    <color name="menu_widget_text">#FF1A1C18</color>
+    <color name="menu_widget_text_secondary">#FF5F6157</color>
+    <color name="menu_widget_today">#FFD7E8CD</color>
+    <color name="menu_widget_accent2">#FF7D5260</color>
+    <color name="menu_widget_divider">#FFC4C8BB</color>
+    <color name="menu_widget_accent">#FF3D6837</color>
+</resources>

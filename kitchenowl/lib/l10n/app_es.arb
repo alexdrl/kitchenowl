@@ -551,6 +551,8 @@
   "plannerWeekView": "Vista semanal",
   "plannerListView": "Vista de lista",
   "plannerShowBreakfast": "Mostrar desayuno",
+  "plannerPhoneCalendar": "Mostrar en el calendario del móvil",
+  "plannerPhoneCalendarDenied": "KitchenOwl necesita acceso al calendario para mostrar ahí las comidas",
   "plannerNoDay": "Sin día",
   "plannerOtherDate": "Otra fecha…",
   "plannerAddTitle": "Añadir al planificador",

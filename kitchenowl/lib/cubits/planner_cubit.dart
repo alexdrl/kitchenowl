@@ -10,6 +10,7 @@ import 'package:kitchenowl/models/planner_note.dart';
 import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
+import 'package:kitchenowl/services/menu_widget.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
 import 'package:kitchenowl/services/wear_bridge.dart';
 import 'package:kitchenowl/services/transactions/planner.dart';
@@ -164,13 +165,15 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
         .getPlannerNotes(household, from: _notesFrom)
         .catchError((_) => null);
 
-    emit(LoadedPlannerCubitState(
+    final loaded = LoadedPlannerCubitState(
       await planned,
       await recent,
       await suggested,
       await notes ?? const [],
-    ));
+    );
+    emit(loaded);
     _refreshLock = false;
+    MenuWidget.update(household, loaded.recipePlans, loaded.notes).ignore();
   }
 
   Future<void> refreshSuggestions() async {

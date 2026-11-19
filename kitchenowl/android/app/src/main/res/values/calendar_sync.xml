@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Phone calendar with the planned meals (CalendarSync.kt) -->
+    <string name="calendar_sync_account">KitchenOwl</string>
+    <string name="calendar_sync_name">KitchenOwl menu</string>
+    <color name="calendar_sync_color">#FF3D6837</color>
+</resources>

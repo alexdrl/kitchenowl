@@ -5,6 +5,7 @@ import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
 import 'package:kitchenowl/services/app_log.dart';
 import 'package:kitchenowl/services/app_log_upload.dart';
+import 'package:kitchenowl/services/menu_widget.dart';
 import 'package:kitchenowl/services/storage/mem_storage.dart';
 import 'package:kitchenowl/services/storage/storage.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
@@ -48,6 +49,7 @@ class BackgroundTask {
             await TransactionHandler.getInstance().runTransaction(
                 TransactionShoppingListGet(household: Household(id: id)));
         }),
+        MenuWidget.refreshInBackground(),
       ]);
     }
   }
@@ -58,6 +60,7 @@ class BackgroundTask {
     await Future.wait([
       TransactionHandler.getInstance().runOpenTransactions(),
       _refreshShoppingLists(PreferenceStorage.getInstance()),
+      MenuWidget.refreshInBackground(),
     ]);
   }
 

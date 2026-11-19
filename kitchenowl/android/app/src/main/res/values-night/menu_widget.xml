@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="menu_widget_background">#FF1A1C18</color>
+    <color name="menu_widget_text">#FFE3E3DB</color>
+    <color name="menu_widget_text_secondary">#FFC5C8BA</color>
+    <color name="menu_widget_today">#FF2A3A27</color>
+    <color name="menu_widget_accent2">#FFEFB8C8</color>
+    <color name="menu_widget_divider">#FF44483E</color>
+    <color name="menu_widget_accent">#FFA2D397</color>
+</resources>

@@ -5,6 +5,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var calendarSync: CalendarSyncChannel? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         // Facts for the summary of "Send logs" (lib/services/app_log_upload.dart)
@@ -14,6 +16,8 @@ class MainActivity : FlutterActivity() {
         WearBridge.install(channel, applicationContext)
         WearBridge.uiChannel = channel
         WearBridge.scheduleRefresh(applicationContext)
+        // Planned meals in the phone's calendar (CalendarSync.kt)
+        calendarSync = CalendarSyncChannel(this, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -29,5 +33,14 @@ class MainActivity : FlutterActivity() {
     override fun onPause() {
         WearBridge.uiResumed = false
         super.onPause()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        if (calendarSync?.onRequestPermissionsResult(requestCode, grantResults) == true) return
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 }
