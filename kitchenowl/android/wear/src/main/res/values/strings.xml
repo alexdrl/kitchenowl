@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KitchenOwl</string>
+    <string name="tile_label">Shopping list</string>
+
+    <string name="no_snapshot_title">Open KitchenOwl on your phone</string>
+    <string name="no_snapshot_body">The list appears here as soon as your phone sends it.</string>
+    <string name="tile_no_snapshot">Open KitchenOwl on your phone</string>
+
+    <string name="list_empty">Nothing to buy</string>
+    <string name="uncategorized">Uncategorized</string>
+    <string name="refresh">Refresh</string>
+    <string name="refreshing">Asking the phone…</string>
+    <string name="change_list">Change list</string>
+    <string name="pick_list">Shopping lists</string>
+    <string name="items_count">%d items</string>
+    <string name="undo_item">Undo: %s</string>
+    <string name="switching_list">Switching list…</string>
+
+    <string name="updated_hours">Updated %d h ago</string>
+    <string name="updated_days">Updated %d d ago</string>
+    <string name="not_confirmed">%d not confirmed yet</string>
+    <string name="item_not_confirmed">not confirmed</string>
+
+    <string name="tile_all_done">All done</string>
+    <plurals name="tile_items_left">
+        <item quantity="one">%d item left</item>
+        <item quantity="other">%d items left</item>
+    </plurals>
+</resources>
