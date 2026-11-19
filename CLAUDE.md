@@ -30,6 +30,7 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 | `fix/delete-category-by-name` | TomBursch/kitchenowl#1234 | delete a category by name |
 | `feat/app-logs` | never (fork only) | `AppLog`: rotating log file on the phone (2 × 1 MB), batched OTLP/HTTP upload to the cluster's collector from the existing background fetch (every 6 h, sooner once after an error), "Send logs" in the settings, and the `catch (_)` logs of upstream files |
 | `feat/app-logs-fork` | never (needs `feat/app-logs`, `feat/wear-menu-tile`, `feat/android-calendar-sync`, `feat/planner-ics`; merges them) | the logs of the fork's own features: the watch's log buffer relayed by the phone, the watch's "Send logs", summary facts and `catch (_)` logs of the widget, calendar, ICS sheet and watch code. Kept apart so the upstream-candidate feature branches never get the fork-only log upload |
+| `feat/backend-otel` | not yet (opt-in, could go upstream) | optional OpenTelemetry tracing in the backend: Flask, SQLAlchemy and requests spans over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; the SDK is not even imported otherwise |
 | `perf/lazy-imports` | TomBursch/kitchenowl#1243 | backend imports litellm, the NLP parser, recipe-scrapers and pandas on first use (worker about 500 → 170 MB at startup) |
 | `fork/claude-md` | never | this file and `fork/` (fork-only tooling) |
 
