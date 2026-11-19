@@ -21,6 +21,7 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 | `feat/planner-meal` | not yet | meals (breakfast/lunch/dinner) in the planner, weekly view, text meals |
 | `feat/android-widget` | not yet (needs `feat/planner-meal`, branched from it) | Android home screen widget: today's menu, or the current week when made big (tablets); refreshed by the background fetch task |
 | `feat/planner-ics` | not yet (needs `feat/planner-meal`, branched from it) | iCalendar feed of the meal plan (secret link per household) and "Subscribe to calendar" in the planner |
+| `feat/android-calendar-sync` | not yet (branched from `feat/android-widget`) | planned meals in the phone's calendar: an account of our own + a SyncAdapter writing to `CalendarContract`, fed by the widget's menu data |
 | `feat/wear-shopping-list` | not yet | Wear OS watch app (`android/wear/`) to tick off the shopping list; the phone relays everything over the Data Layer, the watch has no network or token |
 | `fix/web-base-uri` | TomBursch/kitchenowl#1236 | web API base from `<base href>`, not the page URL (deep links broke) |
 | `fix/zero-yields-scale` | TomBursch/kitchenowl#1237 | recipes with 0 servings no longer throw when scaled |
