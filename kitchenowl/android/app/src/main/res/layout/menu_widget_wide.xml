@@ -166,6 +166,7 @@
             android:textSize="13sp"
             android:textStyle="bold" />
         <FrameLayout
+            android:id="@+id/menu_widget_next0_divider"
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginTop="5dp"
@@ -234,6 +235,7 @@
             </LinearLayout>
         </LinearLayout>
         <FrameLayout
+            android:id="@+id/menu_widget_next1_divider"
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginTop="5dp"
@@ -302,6 +304,7 @@
             </LinearLayout>
         </LinearLayout>
         <FrameLayout
+            android:id="@+id/menu_widget_next2_divider"
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginTop="5dp"
