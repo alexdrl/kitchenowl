@@ -54,7 +54,9 @@ def init_tracing(app, db) -> bool:
         ),
     )
     with app.app_context():
-        SQLAlchemyInstrumentor().instrument(engine=db.engine)
+        # The instrumentation declares sqlalchemy < 2.1 and would skip itself on
+        # 2.1; the engine events it hooks are unchanged there.
+        SQLAlchemyInstrumentor().instrument(engine=db.engine, skip_dep_check=True)
     RequestsInstrumentor().instrument()
     app.logger.info("OpenTelemetry tracing enabled")
     return True
