@@ -19,6 +19,7 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 | Branch | Upstream PR | What |
 | --- | --- | --- |
 | `feat/planner-meal` | not yet | meals (breakfast/lunch/dinner) in the planner, weekly view, text meals |
+| `feat/android-widget` | not yet (needs `feat/planner-meal`, branched from it) | Android home screen widget: today's menu, or the current week when made big (tablets) |
 | `fix/web-base-uri` | TomBursch/kitchenowl#1236 | web API base from `<base href>`, not the page URL (deep links broke) |
 | `fix/zero-yields-scale` | TomBursch/kitchenowl#1237 | recipes with 0 servings no longer throw when scaled |
 | `feat/mcp-item-categories` | TomBursch/kitchenowl#1233 | MCP tools to edit items and manage categories |
@@ -37,6 +38,8 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 - The `applicationId` stays `com.tombursch.kitchenowl`. The fork replaces the official app, which has to be uninstalled first because its signature is different.
 - APKs are signed with the fork's own release key, which is never in the repo (`key.properties` and `*.jks` are gitignored). Android refuses an update signed with any other key.
 - Build number = upstream build × 100 + fork build, e.g. `0.8.1-fork.1` / `12601` on upstream `0.8.1+126`. The next upstream release then still counts as newer. `MIN_FRONTEND_VERSION` only compares against this number, so a large value is harmless.
+- The checkout used by the build lives in the `ko-src` volume. Later builds are incremental and take about 5 minutes; the first one takes about 25.
+- To try an APK on the x86_64 emulator, install it with `adb install --abi arm64-v8a`: the APK has `x86_64` plugin libraries but no `libflutter.so` for it. A widget layout may only use classes RemoteViews allows (no plain `View`); if one fails, the launcher shows "Can't load widget" and logcat names the class.
 - `kitchenowl/fonts/Items.ttf` is built from the Icons8 icons, and their licence forbids redistribution. Do not publish the APK anywhere public.
 
 ## Commands
