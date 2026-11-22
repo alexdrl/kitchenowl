@@ -16,7 +16,9 @@ import 'package:kitchenowl/models/planner.dart';
 import 'package:kitchenowl/models/planner_note.dart';
 import 'package:kitchenowl/models/recipe.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
+import 'package:kitchenowl/models/update_value.dart';
 import 'package:kitchenowl/pages/item_selection_page.dart';
+import 'package:kitchenowl/pages/recipe_add_update_page.dart';
 import 'package:kitchenowl/pages/recipe_list_display_page.dart';
 import 'package:kitchenowl/services/phone_calendar.dart';
 import 'package:kitchenowl/services/transaction_handler.dart';
@@ -671,13 +673,8 @@ class _PlannerPageState extends State<PlannerPage> {
                   ),
                   recentTexts: cubit.recentNoteTexts(),
                 );
-                if (choice?.recipe != null) {
-                  await cubit.add(choice!.recipe!, cookingDate, meal);
-                } else if (choice?.text != null) {
-                  final ok =
-                      await cubit.addNote(cookingDate, meal, choice!.text!);
-                  _reportFailure(ok);
-                }
+                if (choice == null) return;
+                await _onSlotChoice(cubit, choice, cookingDate, meal);
               },
               onDrop: (data, cookingDate, meal) {
                 if (data is RecipePlan) {
@@ -767,8 +764,8 @@ class _PlannerPageState extends State<PlannerPage> {
           initialText: note.text,
           textOnly: true,
         );
-        if (choice?.text != null) {
-          final ok = await cubit.updateNote(note.copyWith(text: choice!.text));
+        if (choice is PlannerSlotText) {
+          final ok = await cubit.updateNote(note.copyWith(text: choice.text));
           _reportFailure(ok);
         }
       case 'move':
@@ -792,6 +789,79 @@ class _PlannerPageState extends State<PlannerPage> {
       case 'remove':
         final ok = await cubit.removeNote(note);
         _reportFailure(ok);
+    }
+  }
+
+  Future<void> _onSlotChoice(
+    PlannerCubit cubit,
+    PlannerSlotChoice choice,
+    DateTime cookingDate,
+    Meal meal,
+  ) async {
+    switch (choice) {
+      case PlannerSlotRecipe(:final recipe):
+        await cubit.add(recipe, cookingDate, meal);
+      case PlannerSlotText(:final text):
+        _reportFailure(await cubit.addNote(cookingDate, meal, text));
+      case PlannerSlotNewRecipe(:final name, openEditor: false):
+        final recipe = await cubit.createAndAdd(name, cookingDate, meal);
+        if (!mounted) return;
+        final loc = AppLocalizations.of(context)!;
+        if (recipe == null) {
+          // Making a recipe needs the server: keep the meal as a text
+          showSnackbar(
+            context: context,
+            width: null,
+            duration: const Duration(seconds: 6),
+            persist: false,
+            content: Text(loc.plannerCreateRecipeFailed),
+            action: SnackBarAction(
+              label: loc.plannerSaveAsText,
+              onPressed: () async =>
+                  _reportFailure(await cubit.addNote(cookingDate, meal, name)),
+            ),
+          );
+          return;
+        }
+        showSnackbar(
+          context: context,
+          width: null,
+          duration: const Duration(seconds: 4),
+          persist: false,
+          content: Text(loc.plannerRecipeCreated),
+          action: SnackBarAction(
+            label: loc.plannerRecipeComplete,
+            onPressed: () => _openRecipeEditor(cubit, recipe),
+          ),
+        );
+      case PlannerSlotNewRecipe(:final name, openEditor: true):
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        final res = await Navigator.of(context, rootNavigator: true)
+            .push<Object?>(MaterialPageRoute(
+          builder: (context) => AddUpdateRecipePage(
+            household: cubit.household,
+            recipe: Recipe(name: name),
+            canSaveWithoutChanges: name.isNotEmpty,
+            returnCreatedRecipe: true,
+          ),
+        ));
+        if (res is UpdateValue<Recipe> && res.data != null) {
+          await cubit.add(res.data!, cookingDate, meal);
+        }
+    }
+  }
+
+  Future<void> _openRecipeEditor(PlannerCubit cubit, Recipe recipe) async {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    final res = await Navigator.of(context, rootNavigator: true)
+        .push<UpdateEnum>(MaterialPageRoute(
+      builder: (context) => AddUpdateRecipePage(
+        household: cubit.household,
+        recipe: recipe,
+      ),
+    ));
+    if (res == UpdateEnum.updated || res == UpdateEnum.deleted) {
+      await cubit.refresh();
     }
   }
 

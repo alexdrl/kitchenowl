@@ -585,5 +585,14 @@
   "plannerCalendarCopy": "Copiar enlace",
   "plannerCalendarNewLink": "Enlace nuevo",
   "plannerCalendarNewLinkInfo": "El enlace actual deja de funcionar en todos los calendarios que lo usan",
-  "plannerCalendarOpenFailed": "Ninguna app de este dispositivo abre enlaces de calendario"
+  "plannerCalendarOpenFailed": "Ninguna app de este dispositivo abre enlaces de calendario",
+  "plannerCreateRecipe": "Crear receta «{name}»",
+  "plannerCreateRecipeInfo": "Solo con el nombre. La completas después.",
+  "plannerNewRecipe": "Nueva receta…",
+  "plannerNewRecipeInfo": "Se planifica aquí al guardarla",
+  "plannerEditBeforeCreate": "Editar antes de guardar",
+  "plannerCreateRecipeFailed": "No se puede crear la receta. Mira la conexión.",
+  "plannerSaveAsText": "Guardar como texto",
+  "plannerRecipeCreated": "Receta creada y planificada",
+  "plannerRecipeComplete": "Completar"
 }

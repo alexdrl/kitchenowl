@@ -933,5 +933,22 @@
   "plannerCalendarCopy": "Copy link",
   "plannerCalendarNewLink": "New link",
   "plannerCalendarNewLinkInfo": "The current link stops working in every calendar that uses it",
-  "plannerCalendarOpenFailed": "No app on this device opens calendar links"
+  "plannerCalendarOpenFailed": "No app on this device opens calendar links",
+  "plannerCreateRecipe": "Create recipe \"{name}\"",
+  "@plannerCreateRecipe": {
+    "placeholders": {
+      "name": {
+        "example": "Lentil stew",
+        "type": "String"
+      }
+    }
+  },
+  "plannerCreateRecipeInfo": "Name only. You can complete it later.",
+  "plannerNewRecipe": "New recipe…",
+  "plannerNewRecipeInfo": "It is planned here when you save it",
+  "plannerEditBeforeCreate": "Edit before saving",
+  "plannerCreateRecipeFailed": "Cannot create the recipe. Check the connection.",
+  "plannerSaveAsText": "Save as text",
+  "plannerRecipeCreated": "Recipe created and planned",
+  "plannerRecipeComplete": "Complete"
 }

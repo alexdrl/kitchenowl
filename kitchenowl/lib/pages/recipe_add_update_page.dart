@@ -25,12 +25,18 @@ class AddUpdateRecipePage extends StatefulWidget {
   final bool canSaveWithoutChanges;
   final bool openRecipeAfterCreation;
 
+  /// When true, a new recipe pops `UpdateValue<Recipe>` with the created
+  /// recipe instead of `UpdateEnum.updated`. If the recipe cannot be created,
+  /// the page stays open and shows an error.
+  final bool returnCreatedRecipe;
+
   const AddUpdateRecipePage({
     super.key,
     required this.household,
     this.recipe = const Recipe(),
     this.canSaveWithoutChanges = false,
     this.openRecipeAfterCreation = false,
+    this.returnCreatedRecipe = false,
   });
 
   @override
@@ -63,6 +69,28 @@ class _AddUpdateRecipePageState extends State<AddUpdateRecipePage> {
       widget.recipe,
       widget.canSaveWithoutChanges,
     );
+  }
+
+  Future<void> _save() async {
+    final recipe = await cubit.saveRecipe();
+    if (!mounted) return;
+    if (widget.returnCreatedRecipe && !isUpdate) {
+      if (recipe == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppLocalizations.of(context)!.plannerSaveFailed),
+        ));
+        return;
+      }
+      Navigator.of(context).pop(UpdateValue<Recipe>(UpdateEnum.updated, recipe));
+      return;
+    }
+    Navigator.of(context).pop(UpdateEnum.updated);
+    if (recipe != null && widget.openRecipeAfterCreation) {
+      context.go(
+        "/household/${cubit.household.id}/recipes/details/${recipe.id}",
+        extra: Tuple2<Household, Recipe>(cubit.household, recipe),
+      );
+    }
   }
 
   @override
@@ -150,44 +178,14 @@ class _AddUpdateRecipePageState extends State<AddUpdateRecipePage> {
                               icon: const Icon(Icons.save_rounded),
                               tooltip: AppLocalizations.of(context)!.save,
                               onPressed: state.isValid() && state.hasChanges
-                                  ? () async {
-                                      final recipe = await cubit.saveRecipe();
-                                      if (!mounted) return;
-                                      Navigator.of(context)
-                                          .pop(UpdateEnum.updated);
-                                      if (recipe != null &&
-                                          widget.openRecipeAfterCreation) {
-                                        context.go(
-                                          "/household/${cubit.household.id}/recipes/details/${recipe.id}",
-                                          extra: Tuple2<Household, Recipe>(
-                                            cubit.household,
-                                            recipe,
-                                          ),
-                                        );
-                                      }
-                                    }
+                                  ? _save
                                   : null,
                             )
                           : Padding(
                               padding: const EdgeInsets.only(left: 4, right: 8),
                               child: LoadingFilledButton(
                                 onPressed: state.isValid() && state.hasChanges
-                                    ? () async {
-                                        final recipe = await cubit.saveRecipe();
-                                        if (!mounted) return;
-                                        Navigator.of(context)
-                                            .pop(UpdateEnum.updated);
-                                        if (recipe != null &&
-                                            widget.openRecipeAfterCreation) {
-                                          context.go(
-                                            "/household/${cubit.household.id}/recipes/details/${recipe.id}",
-                                            extra: Tuple2<Household, Recipe>(
-                                              cubit.household,
-                                              recipe,
-                                            ),
-                                          );
-                                        }
-                                      }
+                                    ? _save
                                     : null,
                                 child: Text(
                                   isUpdate
