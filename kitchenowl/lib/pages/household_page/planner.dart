@@ -754,8 +754,6 @@ class _PlannerPageState extends State<PlannerPage> {
     }
   }
 
-  /// Text meals and the breakfast setting aren't queued offline: say so
-  /// when the server didn't take a change instead of losing it silently.
   Future<void> _onSlotChoice(
     PlannerCubit cubit,
     PlannerSlotChoice choice,
@@ -829,6 +827,8 @@ class _PlannerPageState extends State<PlannerPage> {
     }
   }
 
+  /// Text meals and the breakfast setting aren't queued offline: say so
+  /// when the server didn't take a change instead of losing it silently.
   void _reportFailure(bool ok) {
     // The page's own context: callers may hold one from a closed sheet
     if (ok || !mounted) return;
