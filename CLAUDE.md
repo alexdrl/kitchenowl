@@ -21,6 +21,7 @@ This checkout is a fork of [TomBursch/kitchenowl](https://github.com/TomBursch/k
 | `feat/planner-meal` | not yet | meals (breakfast/lunch/dinner) in the planner, weekly view, text meals |
 | `feat/android-widget` | not yet (needs `feat/planner-meal`, branched from it) | Android home screen widget: today's menu, or the current week when made big (tablets); refreshed by the background fetch task |
 | `feat/planner-ics` | not yet (needs `feat/planner-meal`, branched from it) | iCalendar feed of the meal plan (secret link per household) and "Subscribe to calendar" in the planner |
+| `feat/planner-quick-recipe` | not yet (needs `feat/planner-meal`, branched from it) | create a recipe from an empty slot of the week view: "Create recipe" makes it with only the name, the pencil opens the full recipe page; `AddUpdateRecipePage` can return the new recipe |
 | `feat/android-calendar-sync` | not yet (branched from `feat/android-widget`) | planned meals in the phone's calendar: an account of our own + a SyncAdapter writing to `CalendarContract`, fed by the widget's menu data |
 | `feat/wear-shopping-list` | not yet | Wear OS watch app (`android/wear/`) to tick off the shopping list; the phone relays everything over the Data Layer, the watch has no network or token |
 | `feat/wear-menu-tile` | not yet (needs `feat/wear-shopping-list` and `feat/planner-meal`) | Wear OS tile and screen with today's and tomorrow's meals, relayed by the phone |
