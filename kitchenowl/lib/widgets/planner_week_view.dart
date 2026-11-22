@@ -682,8 +682,36 @@ class PlannerDraggableRecipeChip extends StatelessWidget {
   }
 }
 
-/// What the user chose for an empty slot: a recipe, or a free text.
-typedef PlannerSlotChoice = ({Recipe? recipe, String? text});
+/// What the user chose for an empty slot.
+sealed class PlannerSlotChoice {
+  const PlannerSlotChoice();
+}
+
+/// An existing recipe.
+class PlannerSlotRecipe extends PlannerSlotChoice {
+  final Recipe recipe;
+
+  const PlannerSlotRecipe(this.recipe);
+}
+
+/// A free text meal, such as "Dinner at X".
+class PlannerSlotText extends PlannerSlotChoice {
+  final String text;
+
+  const PlannerSlotText(this.text);
+}
+
+/// A recipe that does not exist yet.
+///
+/// With [openEditor] false, the recipe is made with only [name]. With
+/// [openEditor] true, the full recipe page opens with [name] filled in
+/// ([name] can be empty).
+class PlannerSlotNewRecipe extends PlannerSlotChoice {
+  final String name;
+  final bool openEditor;
+
+  const PlannerSlotNewRecipe(this.name, {this.openEditor = false});
+}
 
 /// Bottom sheet for an empty slot: pick a recipe (searchable) or write a
 /// text meal such as "Dinner at X".
@@ -739,7 +767,11 @@ class _SlotSheet extends StatefulWidget {
 
 class _SlotSheetState extends State<_SlotSheet> {
   late bool textMode = widget.textOnly || widget.initialText != null;
-  String query = '';
+
+  /// The search text as typed, trimmed
+  String search = '';
+
+  String get query => search.toLowerCase();
   late final TextEditingController textController =
       TextEditingController(text: widget.initialText);
 
@@ -752,7 +784,7 @@ class _SlotSheetState extends State<_SlotSheet> {
   void _submitText([String? value]) {
     final text = (value ?? textController.text).trim();
     if (text.isEmpty) return;
-    Navigator.of(context).pop<PlannerSlotChoice>((recipe: null, text: text));
+    Navigator.of(context).pop<PlannerSlotChoice>(PlannerSlotText(text));
   }
 
   @override
@@ -888,7 +920,7 @@ class _SlotSheetState extends State<_SlotSheet> {
               hintText: loc.plannerPickRecipe,
               border: const OutlineInputBorder(),
             ),
-            onChanged: (v) => setState(() => query = v.trim().toLowerCase()),
+            onChanged: (v) => setState(() => search = v.trim()),
           ),
         ),
         Expanded(
@@ -901,24 +933,91 @@ class _SlotSheetState extends State<_SlotSheet> {
               final recipes = snapshot.data!
                   .where((r) => r.name.toLowerCase().contains(query))
                   .toList();
-              if (recipes.isEmpty) {
-                return Center(child: Text(loc.recipeEmptySearch));
-              }
+              // Offer to create the recipe unless one has this exact name
+              final exactMatch = recipes
+                  .any((r) => r.name.trim().toLowerCase() == query);
+              final showCreate = !exactMatch;
+              final offset = showCreate ? 1 : 0;
               return ListView.builder(
                 controller: widget.controller,
-                itemCount: recipes.length,
-                itemBuilder: (context, i) => ListTile(
-                  leading: const Icon(Icons.restaurant_rounded),
-                  title: Text(recipes[i].name),
-                  onTap: () => Navigator.of(context).pop<PlannerSlotChoice>(
-                    (recipe: recipes[i], text: null),
-                  ),
-                ),
+                itemCount: recipes.length +
+                    offset +
+                    (recipes.isEmpty && query.isNotEmpty ? 1 : 0),
+                itemBuilder: (context, i) {
+                  if (showCreate && i == 0) {
+                    return _NewRecipeTile(name: search);
+                  }
+                  if (i - offset >= recipes.length) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        loc.recipeEmptySearch,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    );
+                  }
+                  final recipe = recipes[i - offset];
+                  return ListTile(
+                    leading: const Icon(Icons.restaurant_rounded),
+                    title: Text(recipe.name),
+                    onTap: () => Navigator.of(context)
+                        .pop<PlannerSlotChoice>(PlannerSlotRecipe(recipe)),
+                  );
+                },
               );
             },
           ),
         ),
       ],
+    );
+  }
+}
+
+/// First row of the recipe list in the slot sheet. With a search text, a tap
+/// makes a recipe with that name and the pencil opens the full recipe page
+/// first. Without a search text, a tap opens the full recipe page.
+class _NewRecipeTile extends StatelessWidget {
+  final String name;
+
+  const _NewRecipeTile({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
+    final quick = name.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      child: Material(
+        color: scheme.secondaryContainer.withValues(alpha: .5),
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: scheme.primary,
+            foregroundColor: scheme.onPrimary,
+            child: const Icon(Icons.add_rounded),
+          ),
+          title: Text(
+            quick ? loc.plannerCreateRecipe(name) : loc.plannerNewRecipe,
+          ),
+          subtitle: Text(
+            quick ? loc.plannerCreateRecipeInfo : loc.plannerNewRecipeInfo,
+          ),
+          trailing: quick
+              ? IconButton(
+                  icon: const Icon(Icons.edit_rounded),
+                  tooltip: loc.plannerEditBeforeCreate,
+                  onPressed: () => Navigator.of(context).pop<PlannerSlotChoice>(
+                    PlannerSlotNewRecipe(name, openEditor: true),
+                  ),
+                )
+              : null,
+          onTap: () => Navigator.of(context).pop<PlannerSlotChoice>(
+            PlannerSlotNewRecipe(name, openEditor: !quick),
+          ),
+        ),
+      ),
     );
   }
 }

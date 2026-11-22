@@ -898,5 +898,22 @@
   "plannerNoteEatingOut": "Eating out",
   "plannerNoteLeftovers": "Leftovers",
   "plannerNoteTakeaway": "Takeaway",
-  "plannerSaveFailed": "Couldn't save it. Check your connection and try again."
+  "plannerSaveFailed": "Couldn't save it. Check your connection and try again.",
+  "plannerCreateRecipe": "Create recipe \"{name}\"",
+  "@plannerCreateRecipe": {
+    "placeholders": {
+      "name": {
+        "example": "Lentil stew",
+        "type": "String"
+      }
+    }
+  },
+  "plannerCreateRecipeInfo": "Name only. You can complete it later.",
+  "plannerNewRecipe": "New recipe…",
+  "plannerNewRecipeInfo": "It is planned here when you save it",
+  "plannerEditBeforeCreate": "Edit before saving",
+  "plannerCreateRecipeFailed": "Cannot create the recipe. Check the connection.",
+  "plannerSaveAsText": "Save as text",
+  "plannerRecipeCreated": "Recipe created and planned",
+  "plannerRecipeComplete": "Complete"
 }

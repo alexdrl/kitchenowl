@@ -70,6 +70,25 @@ class PlannerCubit extends Cubit<PlannerCubitState> {
     await refresh();
   }
 
+  /// Makes a recipe with only [name] and plans it for [cookingDate] and
+  /// [meal]. Returns the new recipe, or null when the server did not make it
+  /// (for example when offline). Making a recipe is online only.
+  Future<Recipe?> createAndAdd(
+    String name,
+    DateTime cookingDate,
+    Meal meal,
+  ) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    final recipe = await ApiService.getInstance().addRecipe(
+      household,
+      Recipe(name: trimmed.length > 128 ? trimmed.substring(0, 128) : trimmed),
+    );
+    if (recipe == null) return null;
+    await add(recipe, cookingDate, meal);
+    return recipe;
+  }
+
   /// Moves a plan to another day and/or meal, keeping its yields.
   Future<void> move(RecipePlan plan, DateTime? cookingDate, Meal meal) async {
     if (plan.cookingDate == cookingDate && plan.meal == meal) return;
